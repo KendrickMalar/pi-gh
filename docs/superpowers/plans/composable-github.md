@@ -1,6 +1,6 @@
 # Composable GitHub Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a separate Pi extension safely compose generic GitHub operations without embedding Scaffold in pi-gh.
 **Architecture:** Individually registered tools call shared services. A generic REST/GraphQL adapter supplies bounded reads and snapshot-based writes; local exact grants augment, never replace, the existing human-confirmation path.
@@ -46,4 +46,4 @@
 - [x] Run real Pi synthetic tests with fake gh, no real credentials.
 - [x] Document exact tool args/change formats/policy and limits; self-review and independent whole-branch review if available.
 - [x] Run `npm run typecheck`, `npm test`, real-Pi acceptance and diff/secret review; Expected all green with actual logs.
-- [ ] Push feature, create PR, merge only after verified evidence; read remote main and Issue state back. No npm publication or profile activation.
+- [x] Push feature and create PR #2. Final merged-tree verification, main push and Issue readback are recorded in Issue #1; no npm publication or profile activation.

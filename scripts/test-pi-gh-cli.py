@@ -65,7 +65,7 @@ class Acceptance(unittest.TestCase):
   with self.probe.open('a') as probe:
    probe.write("\nimport {Type} from '@earendil-works/pi-ai';\nexport const ownedWrapper = true;\n")
   original=self.probe.read_text()
-  original=original.replace("export default function(pi){", "export default function(pi){pi.registerTool({name:'owned_nested',label:'Owned nested call',description:'Synthetic wrapper',parameters:Type.Object({operation:Type.String(),args:Type.Unknown()}),async execute(_id,args,_signal,_update,ctx){const nested=await ctx.executeTool(args.operation,args.args);return {...nested.result,isError:nested.isError}}});pi.on('tool_call',event=>{if(event.toolName==='gh_issue_submit'&&process.env.OWNED_BLOCK_NESTED==='1')return {block:true,reason:'OWNED_HOOK_BLOCKED'};});")
+  original=original.replace("export default function(pi){", "export default function(pi){pi.on('session_start',(_event,ctx)=>{if(ctx.mode==='tui')ctx.ui.notify('OWNED_SESSION_READY','info')});pi.registerTool({name:'owned_nested',label:'Owned nested call',description:'Synthetic wrapper',parameters:Type.Object({operation:Type.String(),args:Type.Unknown()}),async execute(_id,args,_signal,_update,ctx){const nested=await ctx.executeTool(args.operation,args.args);return {...nested.result,isError:nested.isError}}});pi.on('tool_call',event=>{if(event.toolName==='gh_issue_submit'&&process.env.OWNED_BLOCK_NESTED==='1')return {block:true,reason:'OWNED_HOOK_BLOCKED'};});")
   self.probe.write_text(original)
   self.bin=self.home/'bin';self.bin.mkdir();shutil.copyfile(ROOT/'test/fake-gh.mjs',self.bin/'gh');(self.bin/'gh').chmod(0o755)
   for name in ['node','rg','fd']:
@@ -102,7 +102,7 @@ class Acceptance(unittest.TestCase):
  def child(self):
   c=Child(self.args(),self.env,self.cwd);self.children.append(c);return c
  def prompt(self,c):
-  c.wait(lambda:'fixture' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(),20)
+  c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(),20)
  def done(self,c):
   c.wait(lambda:'GH_FIXTURE_DONE' in c.text(),20)
  def tearDown(self):
@@ -140,7 +140,7 @@ class Acceptance(unittest.TestCase):
    try:p.communicate(timeout=3)
    except subprocess.TimeoutExpired:p.terminate();p.communicate(timeout=3)
  def test_read_only_and_reload(self):
-  self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'fixture' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
+  self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
   names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),20)
   self.assertIn('validated',json.dumps(self.requests));mark=len(c.data);c.send('/reload\r');c.wait(lambda:'Reloaded' in c.text(mark) or 'reloaded' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
 
@@ -150,7 +150,7 @@ class Acceptance(unittest.TestCase):
   self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());received=json.dumps(self.requests)
   self.assertIn('validated',received);self.assertIn('generated',received);self.assertNotIn('STALE_OPERATION',received)
  def test_new_session(self):
-  self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'fixture' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
+  self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
   mark=len(c.data);c.send('/new\r');c.wait(lambda:'New session started' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
  def test_secret_preview_is_masked(self):
   self.tool='gh_issue_preview';value=json.loads((self.cwd/'draft.json').read_text());value['fields']['purpose']='password=syntheticvalue123';(self.cwd/'draft.json').write_text(json.dumps(value))
