@@ -31,7 +31,9 @@ class Child:
         while time.monotonic() < end:
             self.pump()
             if predicate(): return
-            if self.p.poll() is not None: break
+            if self.p.poll() is not None:
+                if predicate(): return
+                break
         raise AssertionError("timeout/exit waiting for Pi; tail:\n"+self.text()[-4000:])
     def send(self, data):
         payload = data.encode() if isinstance(data, str) else data
