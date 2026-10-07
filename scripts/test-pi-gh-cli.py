@@ -56,12 +56,17 @@ class Child:
 
 class Acceptance(unittest.TestCase):
  def setUp(self):
-  self.home=Path(tempfile.mkdtemp(prefix='pi-gh-cli-'))
+  self.home=Path(tempfile.mkdtemp(prefix='pi-gh-cli-')).resolve()
   self.agent=self.home/'agent';self.agent.mkdir();self.cwd=self.home/'cwd';self.cwd.mkdir();self.requests=[];self.children=[]
   self.pkg=Path(OPTIONS.package).resolve();self.record=self.home/'gh-record';self.tool='gh_issue_submit';self.tool_args={'draftPath':str(self.cwd/'draft.json')}
   self.parallel=False
   shutil.copyfile(self.pkg/'examples/task.json',self.cwd/'draft.json')
   self.probe=self.home/'ready.ts';self.probe.write_text("export default function(pi){pi.registerCommand('owned-ready',{description:'Synthetic readiness probe',handler:async(_,ctx)=>{ctx.ui.notify('OWNED_READY','info')}});pi.registerCommand('owned-tree',{handler:async(_,ctx)=>{const e=ctx.sessionManager.getEntries().find(e=>e.type==='message'&&e.message.role==='user');await ctx.navigateTree(e.id,{summarize:false});ctx.ui.setEditorText('');ctx.ui.notify('OWNED_TREE_DONE','info')}});}")
+  with self.probe.open('a') as probe:
+   probe.write("\nimport {Type} from '@earendil-works/pi-ai';\nexport const ownedWrapper = true;\n")
+  original=self.probe.read_text()
+  original=original.replace("export default function(pi){", "export default function(pi){pi.registerTool({name:'owned_nested',label:'Owned nested call',description:'Synthetic wrapper',parameters:Type.Object({operation:Type.String(),args:Type.Unknown()}),async execute(_id,args,_signal,_update,ctx){const nested=await ctx.executeTool(args.operation,args.args);return {...nested.result,isError:nested.isError}}});pi.on('tool_call',event=>{if(event.toolName==='gh_issue_submit'&&process.env.OWNED_BLOCK_NESTED==='1')return {block:true,reason:'OWNED_HOOK_BLOCKED'};});")
+  self.probe.write_text(original)
   self.bin=self.home/'bin';self.bin.mkdir();shutil.copyfile(ROOT/'test/fake-gh.mjs',self.bin/'gh');(self.bin/'gh').chmod(0o755)
   for name in ['node','rg','fd']:
    found=shutil.which(name)
@@ -104,7 +109,7 @@ class Acceptance(unittest.TestCase):
   for c in self.children:c.close()
   self.server.shutdown();self.thread.join();self.server.server_close()
   for name,data in self.unchanged.items():self.assertEqual((self.agent/name).read_bytes(),data)
-  evidence=ROOT/'.superpowers/sdd/2026-10-07-pi-gh/native';evidence.mkdir(parents=True,exist_ok=True)
+  evidence=ROOT/'.superpowers/sdd/composable-github/native';evidence.mkdir(parents=True,exist_ok=True)
   (evidence/(self._testMethodName+'.txt')).write_text('\n'.join(c.text() for c in self.children))
  def test_tui_cancel_and_approve(self):
   for keys,written in [('escape',False),('default',False),('approve',True)]:
@@ -136,7 +141,7 @@ class Acceptance(unittest.TestCase):
    except subprocess.TimeoutExpired:p.terminate();p.communicate(timeout=3)
  def test_read_only_and_reload(self):
   self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'fixture' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
-  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),7)
+  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),20)
   self.assertIn('validated',json.dumps(self.requests));mark=len(c.data);c.send('/reload\r');c.wait(lambda:'Reloaded' in c.text(mark) or 'reloaded' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
 
  def test_parallel_readonly(self):
@@ -157,6 +162,23 @@ class Acceptance(unittest.TestCase):
  def test_tree_requires_fresh_confirmation(self):
   c=self.child();self.prompt(c);c.send('\x1b');self.done(c);self.assertFalse(self.record.exists())
   mark=len(c.data);c.send('/owned-tree\r');c.wait(lambda:'OWNED_TREE_DONE' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(mark));self.assertFalse(self.record.exists());c.send('\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
+ def policy(self):
+  directory=self.home/'.pi/agent';directory.mkdir(parents=True,exist_ok=True)
+  path=directory/'pi-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':'example/demo','operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
+ def test_nested_read_and_change_defaults(self):
+  self.tool='owned_nested';self.tool_args={'operation':'gh_issue_validate','args':{'draftPath':str(self.cwd/'draft.json')}}
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertIn('validated',json.dumps(self.requests));self.assertFalse(self.record.exists())
+  self.requests=[];self.tool_args['operation']='gh_issue_submit'
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertFalse(self.record.exists())
+ def test_nested_machine_child_and_hooks(self):
+  self.policy();self.env['PI_SUBAGENT_CHILD']='1';self.tool='owned_nested';self.tool_args={'operation':'gh_issue_submit','args':{'draftPath':str(self.cwd/'draft.json')}}
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertTrue(self.record.exists(),r.stderr+json.dumps(self.requests));self.assertIn('created',json.dumps(self.requests))
+  self.requests=[];self.env['OWNED_BLOCK_NESTED']='1';before=self.record.read_bytes()
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertIn('OWNED_HOOK_BLOCKED',json.dumps(self.requests));self.assertEqual(self.record.read_bytes(),before)
 if __name__=='__main__':
  parser=argparse.ArgumentParser();parser.add_argument('--pi',default=shutil.which('pi'));parser.add_argument('--package',default=str(ROOT));parser.add_argument('--case');OPTIONS=parser.parse_args()
  names=['test_'+OPTIONS.case] if OPTIONS.case else [n for n in Acceptance.__dict__ if n.startswith('test_')]

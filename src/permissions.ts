@@ -13,6 +13,7 @@ type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boo
 export function permissionPath(){return join(homedir(),'.pi','agent','pi-gh-permissions.json');}
 async function capture(path:string):Promise<string|undefined>{
  const absolute=resolve(path);let parent=dirname(absolute);
+ try{const named=await lstat(absolute);if(named.isSymbolicLink())fail('PERMISSION_FILE','','Permission file must not be a symlink.');}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw error;}
  while(true){const s=await lstat(parent);if(!s.isDirectory()||s.isSymbolicLink())fail('PERMISSION_FILE','','Permission parents must be real directories.');const next=dirname(parent);if(next===parent)break;parent=next;}
  let handle;
  try{handle=await open(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);}

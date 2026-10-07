@@ -46,7 +46,8 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
   validateArguments(operation,args);requireActive(ctx);
   const write=operation==='gh_issue_submit'||operation==='gh_labels_apply';
   if(write&&!ctx.interactive&&!ctx.permissions)return rejected('APPROVAL_UI_REQUIRED','External changes require a local human confirmation screen.');
-  const options:GhOptions={signal:ctx.signal,beforeStart:()=>active(ctx)};
+  let machineAuthority=false;
+  const options:GhOptions={signal:ctx.signal,beforeStart:()=>active(ctx),beforeStartAsync:async()=>!machineAuthority||!!ctx.permissions&&await ctx.permissions.isCurrent()};
   if(operation==='gh_issue_form'){const bundle=await loadTemplate(templatePath(args as FormArgs,ctx));requireActive(ctx);const masked=maskDecodedSecrets({template:bundle.template,policy:bundle.policy});return safeResult({status:'generated',data:{yaml:renderForm({...bundle,...masked.value})}});}
   if(operation.startsWith('gh_labels_')){
    const path=inputPath((args as LabelsArgs).changePath,ctx),input=await loadDraft(path);validateLabelChange(input);
@@ -58,6 +59,7 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
    if(sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
    const change=validateLabelChange(input),permissionOperation=change.operation==='label-delete'?'forbidden-delete':change.operation==='issue-labels'?'gh_issue_labels':change.operation==='label-create'?'gh_label_create':'gh_label_edit';
    const machine=await authorize({operation,text:JSON.stringify(maskDecodedSecrets(displayed).value,null,2),digest:preview.digest},ctx,change.repo,permissionOperation);
+   machineAuthority=machine;
    requireActive(ctx);const latest=await loadDraft(path),next=await previewLabelChange(latest,options);requireActive(ctx);
    if(next.digest!==preview.digest||next.sensitive||maskDecodedSecrets(parseJson(latest.bytes)).sensitive)return rejected('APPROVAL_MISMATCH','Input or GitHub state changed; preview and approve again.');
    await recheckAuthority(ctx,machine);
@@ -70,6 +72,7 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
   if(operation==='gh_issue_preview')return safeResult({status:'preview',data:preview});
   if(preview.sensitive)return rejected('SENSITIVE','Remove secret candidates before submitting.');
   const machine=await authorize({operation,text:JSON.stringify(maskDecodedSecrets(preview).value,null,2),digest:preview.digest},ctx,preview.repo);
+  machineAuthority=machine;
   requireActive(ctx);const latest=await issue(args as IssueArgs,ctx);requireActive(ctx);
   if(!latest.checked.issue||latest.preview!.digest!==preview.digest||latest.preview!.sensitive)return rejected('APPROVAL_MISMATCH','Input or GitHub state changed; preview and approve again.');
   await recheckAuthority(ctx,machine);
