@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "template": "parent",
+  "repo": "example/demo",
+  "title": "検索機能の仕様",
+  "fields": {
+    "purpose": "商品を検索できるようにする",
+    "specification": "入力語に一致する商品を一覧表示する",
+    "basicDesign": "既存の検索APIを利用。新しい基本設計は不要。",
+    "outOfScope": [
+      "全文検索エンジンの導入"
+    ],
+    "tasks": [
+      "子タスクを作成後、リンクを記録する"
+    ],
+    "completionCriteria": [
+      "仕様に沿った結果が表示され、独立検証が合格する"
+    ]
+  },
+  "agents": {
+    "coding-manager": {
+      "model": "openai-codex/gpt-6.1-sol",
+      "thinking": "medium",
+      "reason": "基本構成"
+    },
+    "coder": {
+      "model": "openai-codex/gpt-6-luna",
+      "thinking": "xhigh",
+      "reason": "基本構成"
+    },
+    "tester": {
+      "model": "openai-codex/gpt-6-luna",
+      "thinking": "xhigh",
+      "reason": "独立検証"
+    }
+  }
+}

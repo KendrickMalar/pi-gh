@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "repo": "example/demo",
+  "operation": "label-edit",
+  "name": "bug",
+  "newName": "不具合",
+  "color": "d73a4a",
+  "description": "確認済みの不具合"
+}
