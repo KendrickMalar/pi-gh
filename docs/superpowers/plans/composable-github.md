@@ -1,6 +1,6 @@
 # Composable GitHub Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Let a separate Pi extension safely compose generic GitHub operations without embedding Scaffold in pi-gh.
 **Architecture:** Individually registered tools call shared services. A generic REST/GraphQL adapter supplies bounded reads and snapshot-based writes; local exact grants augment, never replace, the existing human-confirmation path.
@@ -23,27 +23,27 @@
 ### Task 1: Callable contract and scoped authorization
 **Files:** src/permissions.ts, src/service-types.ts, src/service.ts, extensions/tools.ts, test/composable.test.mjs, test/permissions.test.mjs.
 **Interfaces:** loadPermissions(path, actor) -> PermissionLease | undefined; lease.allows(operation, repo, projectId?), lease.isCurrent() -> Promise<boolean>. Tool results have outputSchema + structuredContent.
-- [ ] Add failing tests for nested-call exposure, capability tool, policy absence, exact grants, insecure/symlink config, policy invalidation.
-- [ ] Run `npm run build && node --test test/composable.test.mjs test/permissions.test.mjs`; Expected RED for missing behavior.
-- [ ] Implement private policy loading and permission lease; preserve UI defaults and cancellation; expose changes through normal callable tool pipeline.
-- [ ] Run targeted tests and `npm test`; Expected all green.
-- [ ] Commit implementation and evidence ledger.
+- [x] Add failing tests for nested-call exposure, capability tool, policy absence, exact grants, insecure/symlink config, policy invalidation.
+- [x] Run `npm run build && node --test test/composable.test.mjs test/permissions.test.mjs`; Expected RED for missing behavior.
+- [x] Implement private policy loading and permission lease; preserve UI defaults and cancellation; expose changes through normal callable tool pipeline.
+- [x] Run targeted tests and `npm test`; Expected all green.
+- [x] Commit implementation and evidence ledger.
 
 ### Task 2: Generic GitHub operations
 **Files:** src/github-api.ts, src/operations.ts, src/operation-input.ts, extensions/tools.ts, test/operations.test.mjs.
 **Interfaces:** runGithubOperation(name, args, context) -> OperationResult, shared OperationContext and PermissionLease; read tools take repo/issue/projectId, writes take changePath.
-- [ ] Add fake-gh tests for issue read/list/edit/close, native subissues/dependencies, Projects get/items/add/update and exact API requests.
-- [ ] Add rejection tests for invalid args/PR/self-link, secret/drift, pagination/GraphQL error, field/option/item ownership and uncertain outcome.
-- [ ] Run targeted tests; Expected RED for unsupported operations.
-- [ ] Implement input validation, API adapter, preview/approval/recheck, per-runtime serialized mutation tools.
-- [ ] Run targeted tests and full suite/typecheck; Expected GREEN.
-- [ ] Commit implementation and evidence ledger.
+- [x] Add fake-gh tests for issue read/list/edit/close, native subissues/dependencies, Projects get/items/add/update and exact API requests.
+- [x] Add rejection tests for invalid args/PR/self-link, secret/drift, pagination/GraphQL error, field/option/item ownership and uncertain outcome.
+- [x] Run targeted tests; Expected RED for unsupported operations.
+- [x] Implement input validation, API adapter, preview/approval/recheck, per-runtime serialized mutation tools.
+- [x] Run targeted tests and full suite/typecheck; Expected GREEN.
+- [x] Commit implementation and evidence ledger.
 
 ### Task 3: Composition acceptance, docs and delivery
 **Files:** README.md, test/composable.test.mjs, scripts/test-pi-gh-cli.py (if required), docs/superpowers/plans/composable-github-progress.md.
 **Interfaces:** contractVersion:1, gh_capabilities, supported operation registry, owner-only policy example.
-- [ ] Add acceptance assertions for wrapper -> registered pi-gh tool, schema-backed masked result, policy-backed child and default denial.
-- [ ] Run real Pi synthetic tests with fake gh, no real credentials.
-- [ ] Document exact tool args/change formats/policy and limits; self-review and independent whole-branch review if available.
-- [ ] Run `npm run typecheck`, `npm test`, real-Pi acceptance and diff/secret review; Expected all green with actual logs.
+- [x] Add acceptance assertions for wrapper -> registered pi-gh tool, schema-backed masked result, policy-backed child and default denial.
+- [x] Run real Pi synthetic tests with fake gh, no real credentials.
+- [x] Document exact tool args/change formats/policy and limits; self-review and independent whole-branch review if available.
+- [x] Run `npm run typecheck`, `npm test`, real-Pi acceptance and diff/secret review; Expected all green with actual logs.
 - [ ] Push feature, create PR, merge only after verified evidence; read remote main and Issue state back. No npm publication or profile activation.

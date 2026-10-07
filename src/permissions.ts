@@ -13,15 +13,18 @@ type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boo
 export function permissionPath(){return join(homedir(),'.pi','agent','pi-gh-permissions.json');}
 async function capture(path:string):Promise<string|undefined>{
  const absolute=resolve(path);let parent=dirname(absolute);
- try{const named=await lstat(absolute);if(named.isSymbolicLink())fail('PERMISSION_FILE','','Permission file must not be a symlink.');}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw error;}
+ try{const named=await lstat(absolute);if(!named.isFile()||named.size>65536||(named.mode&0o077)!==0||(process.getuid&&named.uid!==process.getuid()))fail('PERMISSION_FILE','','Use an owner-only regular permission file.');}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw error;}
  while(true){const s=await lstat(parent);if(!s.isDirectory()||s.isSymbolicLink())fail('PERMISSION_FILE','','Permission parents must be real directories.');const next=dirname(parent);if(next===parent)break;parent=next;}
  let handle;
- try{handle=await open(absolute,constants.O_RDONLY|constants.O_NOFOLLOW);}
+ try{handle=await open(absolute,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);}
  catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw error;}
  try{
   const s=await handle.stat();if(!s.isFile()||s.size>65536||(s.mode&0o077)!==0||(process.getuid&&s.uid!==process.getuid()))fail('PERMISSION_FILE','','Use an owner-only regular permission file.');
-  const bytes=await handle.readFile();const after=await handle.stat(),named=await lstat(absolute);
-  if(named.isSymbolicLink()||s.ino!==named.ino||s.dev!==named.dev||s.size!==after.size||s.mtimeMs!==after.mtimeMs)fail('PERMISSION_FILE','','Permission file changed while reading.');
+  const buffer=Buffer.alloc(65537);let used=0;
+  while(used<buffer.length){const read=await handle.read(buffer,used,buffer.length-used,used);if(read.bytesRead===0)break;used+=read.bytesRead;}
+  if(used>65536)fail('PERMISSION_FILE','','Permission file exceeds limit.');
+  const bytes=buffer.subarray(0,used),after=await handle.stat(),named=await lstat(absolute);
+  if(named.isSymbolicLink()||s.ino!==named.ino||s.dev!==named.dev||s.size!==after.size||s.size!==used||s.mode!==after.mode||s.uid!==after.uid||s.mode!==named.mode||s.mtimeMs!==after.mtimeMs)fail('PERMISSION_FILE','','Permission file changed while reading.');
   return JSON.stringify({inode:s.ino,device:s.dev,mode:s.mode,bytes:bytes.toString('base64')});
  }finally{await handle.close();}
 }

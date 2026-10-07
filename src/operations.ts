@@ -27,7 +27,7 @@ async function snapshot(api:GithubApi,c:Change):Promise<Snapshot>{
   s.related=await api.issue(c.repo,c.relatedIssue!);const suffix=c.operation==='subissue-add'?'sub_issues':'dependencies/blocked_by';
   s.relations=await api.restList('repos/'+c.repo+'/issues/'+c.issue+'/'+suffix);s.noop=s.relations.some(v=>object(v).id===s.related!.id);return s;
  }
- const fields=await api.project(c.projectId!,'fields'),items=await api.project(c.projectId!,'items');s.project={...fields,...items};
+ const fields=await api.project(c.projectId!,'fields'),items=await api.project(c.projectId!,'items');s.project={id:fields.id};
  if(c.operation==='project-add-issue'){
   s.item=array(items.items).map(object).find(item=>item.content!==null&&object(item.content).id===s.issue!.node_id);
   if(s.item){verifyItem(s.item,c.repo);s.noop=true;}return s;
@@ -37,7 +37,11 @@ async function snapshot(api:GithubApi,c:Change):Promise<Snapshot>{
  const key=Object.keys(c.value!)[0]!,types:Record<string,string>={text:'TEXT',number:'NUMBER',date:'DATE',singleSelectOptionId:'SINGLE_SELECT'};
  if(s.field.dataType!==types[key])fail('ARGUMENT','','Field type does not match the supplied value.');
  if(key==='singleSelectOptionId'&&!array(s.field.options).some(v=>object(v).id===c.value!.singleSelectOptionId))fail('ARGUMENT','','Option is not in the specified field.');
- s.noop=equalField(s.item,c);return s;
+ s.noop=equalField(s.item,c);
+ const current=fieldValue(s.item,c.fieldId!);
+ s.item={id:s.item.id,content:s.item.content,fieldValues:{nodes:current?[current]:[]}};
+ s.field={id:s.field.id,name:s.field.name,dataType:s.field.dataType,...(key==='singleSelectOptionId'?{options:array(s.field.options).filter(v=>object(v).id===c.value!.singleSelectOptionId)}:{})};
+ return s;
 }
 async function apply(api:GithubApi,c:Change,before:Snapshot){
  const endpoint='repos/'+c.repo+'/issues/'+c.issue;

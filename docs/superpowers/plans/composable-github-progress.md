@@ -20,4 +20,10 @@ Task 1 -> Task 2: shared OperationContext, PermissionLease, approval helper and 
 - Source delivery only: no npm publication or real Profile activation. Cost if wrong: users must explicitly load the built source checkout until a release.
 
 ## Review/delivery
-Whole-branch independent read-only review and final verification pending. No real GitHub test mutation performed; tests use synthetic HOME/fake gh. Source retains live API interoperability as an unmeasured residual risk.
+Independent read-only review of 98f75d8..2c153c7 found two Important blockers and no Critical/Minor findings. Both reproduced: FIFO permission open timed out; unrelated Project secret/drift rejected writes. Parent fixed both in one pass: pre-open regular/owner/mode validation, O_NONBLOCK|O_NOFOLLOW and bounded descriptor reads; Project digests contain only selected identity/item/field/current value. Three regression tests observed RED then GREEN; additional target-drift/type/option checks remain green.
+
+Final pre-integration verification: npm run typecheck exit 0; npm test 204 pass/0 fail; real-Pi synthetic acceptance 11 pass; git diff --check clean. Parent performed the post-fix gate; no second independent review was requested. Live read-only checks through the new service succeeded for Issue get/list/subissues/dependencies, and GraphQL introspection confirmed the field input types. No live test mutation was performed.
+
+Declined-to-judge rulings: live mutation interoperability is an explicitly unmeasured residual risk; source-only delivery and existing same-user/remote TOCTOU limits stand as documented. Cost if wrong: investigate against a separately authorized live test target before wider rollout. Deferred minors: none.
+
+Push/PR/main integration and remote readback follow the verified source gate. Validation artifacts remain local, outside the package/public source.
