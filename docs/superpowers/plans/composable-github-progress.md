@@ -26,4 +26,6 @@ Final pre-integration verification: npm run typecheck exit 0; npm test 204 pass/
 
 Declined-to-judge rulings: live mutation interoperability is an explicitly unmeasured residual risk; source-only delivery and existing same-user/remote TOCTOU limits stand as documented. Cost if wrong: investigate against a separately authorized live test target before wider rollout. Deferred minors: none.
 
+Merged-tree native acceptance exposed a test readiness race: the model label renders before Pi enables editor submission. The first native run had 10/11 passes and one startup-probe timeout; main was not pushed. Traced Pi interactive initialization and changed the synthetic probe to wait for its session_start readiness marker, not a rendered model label. Missing-marker RED reproduced; focused GREEN and full native suite 11/11 confirmed. This changes only the test harness, not production operations.
+
 Push/PR/main integration and remote readback follow the verified source gate. Validation artifacts remain local, outside the package/public source.
