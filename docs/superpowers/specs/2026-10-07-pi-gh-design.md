@@ -7,7 +7,7 @@ Piの会話から共通YAMLに沿ったIssue案とラベル変更を検証・プ
 ## 固定条件
 - ローカルrepo予定地: ~/Documents/Github/pi-gh
 - 公開GitHub repo: KendrickMalar/pi-gh
-- npm: pi-gh@0.1.0、MIT、pi-package keyword、公開binなし。
+- npm: @papillon6814/pi-gh@0.1.1、MIT、pi-package keyword、公開binなし。
 - 元の ~/Code/gh-issueflow は変更・削除しない。旧Git履歴、認証、業務データを持ち込まない。
 - 移管基準: gh-issueflow SHA 99acc816e653a4b945d62a2d8fbfca745bcdcf5d。コピー時に内容を比較し、CLI以外のコアとテストを移す。
 - Node.js >=22.19.0、Pi 1.0.4。Pi/TypeBox/TUIはホスト提供peerで、runtime dependenciesへ実体を追加しない。Pi本体は変更しない。

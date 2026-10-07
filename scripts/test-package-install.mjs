@@ -4,5 +4,5 @@ const home=join(artifacts,'synthetic-home');mkdirSync(home,{recursive:true});con
 function run(name,args,cwd=root){const r=spawnSync(name,args,{cwd,env,encoding:'utf8',timeout:150000});if(r.status!==0)throw new Error(name+' failed: '+r.stderr+' '+r.stdout);return r.stdout;}
 const metadata=JSON.parse(run('npm',['pack','--ignore-scripts','--json','--pack-destination',artifacts]));writeFileSync(join(artifacts,'pack.json'),JSON.stringify(metadata,null,2));
 const prefix=join(artifacts,'installed with space');writeFileSync(join(artifacts,'install.log'),run('npm',['install','--prefix',prefix,'--ignore-scripts','--legacy-peer-deps','--omit=dev','--cache',join(artifacts,'cache'),join(artifacts,metadata[0].filename)]));
-const log=run('python3',[join(root,'scripts/test-pi-gh-cli.py'),'--pi',pi,'--package',join(prefix,'node_modules/pi-gh')]);writeFileSync(join(artifacts,'native.log'),log);
+const log=run('python3',[join(root,'scripts/test-pi-gh-cli.py'),'--pi',pi,'--package',join(prefix,'node_modules',metadata[0].name)]);writeFileSync(join(artifacts,'native.log'),log);
 console.log('Installed tarball runtime validated at '+prefix);

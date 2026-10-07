@@ -5,8 +5,8 @@ Piの会話から、共通YAMLに沿ったGitHub Issue案・ラベル変更を�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、GitHub CLI gh。実機検証はmacOS。
 - 変更には通常のgh認証が必要です。認証情報・tokenをこの拡張へ渡す設定はありません。
-- 通常Piへ導入: `pi install npm:pi-gh@0.1.0`。Profileを使わない通常の共通導入の例です。
-- pi-profileのDevelopmentだけで使う: `pi-profile packages add --profile developer npm:pi-gh@0.1.0`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 通常Piへ導入: `pi install npm:@papillon6814/pi-gh@0.1.1`。Profileを使わない通常の共通導入の例です。
+- pi-profileのDevelopmentだけで使う: `pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.1.1`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - ソース利用時は先に `npm install --ignore-scripts && npm run build`。Piホスト提供APIはpeerで、配布に本体を含めません。
 
 ## ツール
