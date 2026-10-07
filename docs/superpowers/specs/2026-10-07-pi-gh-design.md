@@ -6,7 +6,7 @@ Piの会話から共通YAMLに沿ったIssue案とラベル変更を検証・プ
 
 ## 固定条件
 - ローカルrepo予定地: ~/Documents/Github/pi-gh
-- 公開GitHub repo: Papillon6814/pi-gh
+- 公開GitHub repo: KendrickMalar/pi-gh
 - npm: pi-gh@0.1.0、MIT、pi-package keyword、公開binなし。
 - 元の ~/Code/gh-issueflow は変更・削除しない。旧Git履歴、認証、業務データを持ち込まない。
 - 移管基準: gh-issueflow SHA 99acc816e653a4b945d62a2d8fbfca745bcdcf5d。コピー時に内容を比較し、CLI以外のコアとテストを移す。
@@ -66,7 +66,7 @@ GitHub APIだけで検査と書込の間のremote競合を完全に防げると�
 6. 公開候補commit/tgz/内容を提示して実行直前に承認を得る。公開後はversion metadataとtarballで確認。
 
 ## 公開・導入の段階
-Git初期化後、git worktree addによるfeature worktreeで実装する。GitHub repo Papillon6814/pi-ghは現認証から参照できなかった。npm名pi-ghは404だが取得を保証しない。
+Git初期化後、git worktree addによるfeature worktreeで実装する。GitHub repo KendrickMalar/pi-ghは現認証から参照できなかった。npm名pi-ghは404だが取得を保証しない。
 npm whoamiは401で、公開は本人の再認証待ち。token/OTPを文書・ログ・チャットへ要求/保存せず、本人のnpm標準ログインで解決する。MFA・CAPTCHA・想定外権限要求では停止する。
 認証不足でもローカル実装・隔離検証・公開候補tgzまで進められる。GitHub作成/push、npm公開、Development packages.jsonへの追加・取得は別々に対象と影響を示して確認する。共通packagesへ追加しない。実アカウントの書込試験は含めない。
 
