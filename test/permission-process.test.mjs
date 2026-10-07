@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {githubFixture} from './github-fixture.mjs';import {load} from './extension-loader.mjs';
+const {runGh}=await load('../src/core/gh-process.ts');
+test('async authority check blocks subprocess before spawn',async t=>{const f=await githubFixture(t);const result=await runGh(['api','--method','PATCH','repos/example/demo/issues/10'],JSON.stringify({title:'Forbidden'}),{beforeStartAsync:async()=>false});assert.equal(result.status,'not-started');assert.equal((await f.calls()).length,0);});
+test('abort during async authority check blocks subprocess',async t=>{const f=await githubFixture(t),c=new AbortController();const result=await runGh(['api','--method','PATCH','repos/example/demo/issues/10'],'{}',{signal:c.signal,beforeStartAsync:async()=>{c.abort();return true;}});assert.equal(result.status,'not-started');assert.equal((await f.calls()).length,0);});
