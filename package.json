@@ -31,7 +31,8 @@
     "build": "tsc -p tsconfig.core.json",
     "build:test": "tsc -p tsconfig.test.json",
     "test:core": "npm run build && npm run build:test && node --test dist/test/core/*.test.js",
-    "test": "npm run test:core"
+    "test:service": "npm run build && npm run build:test && node --test dist/test/service*.test.js",
+    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js"
   },
   "dependencies": {
     "yaml": "^2.8.1"
