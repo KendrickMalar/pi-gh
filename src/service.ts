@@ -36,7 +36,7 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
   const write=operation==='gh_issue_submit'||operation==='gh_labels_apply';
   if(write&&!ctx.interactive)return rejected('APPROVAL_UI_REQUIRED','External changes require a local human confirmation screen.');
   const options:GhOptions={signal:ctx.signal,beforeStart:()=>active(ctx)};
-  if(operation==='gh_issue_form'){const bundle=await loadTemplate(templatePath(args as FormArgs,ctx));requireActive(ctx);return safeResult({status:'generated',data:{yaml:renderForm(bundle)}});}
+  if(operation==='gh_issue_form'){const bundle=await loadTemplate(templatePath(args as FormArgs,ctx));requireActive(ctx);const masked=maskDecodedSecrets({template:bundle.template,policy:bundle.policy});return safeResult({status:'generated',data:{yaml:renderForm({...bundle,...masked.value})}});}
   if(operation.startsWith('gh_labels_')){
    const path=inputPath((args as LabelsArgs).changePath,ctx),input=await loadDraft(path);validateLabelChange(input);
    if(operation==='gh_labels_validate')return safeResult({status:'validated'});
