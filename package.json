@@ -34,7 +34,7 @@
     "test:extension": "npm run build && node --test test/*.test.mjs",
     "test:core": "npm run build && npm run build:test && node --test dist/test/core/*.test.js",
     "test:service": "npm run build && npm run build:test && node --test dist/test/service*.test.js",
-    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js test/*.test.mjs"
+    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js dist/test/package.test.js test/*.test.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
