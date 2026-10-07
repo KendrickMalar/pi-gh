@@ -21,6 +21,17 @@ async function confirm(view:ApprovalView,ctx:OperationContext):Promise<boolean>{
  try{return await Promise.race([Promise.resolve().then(()=>active(ctx)?ctx.confirm(view):false),cancelled]);}
  finally{ctx.signal.removeEventListener('abort',listener);}
 }
+
+export async function authorize(view:ApprovalView,ctx:OperationContext,repo:string,permissionOperation:string=view.operation,projectId?:string):Promise<boolean>{
+ requireActive(ctx);
+ if(ctx.permissions?.allows(permissionOperation,repo,projectId)){
+  if(!await ctx.permissions.isCurrent())fail('PERMISSION_CHANGED','','Permission file changed.');return true;
+ }
+ if(!ctx.interactive||!await confirm(view,ctx))fail('APPROVAL_DENIED','','Change was not approved.');return false;
+}
+export async function recheckAuthority(ctx:OperationContext,machine:boolean){
+ requireActive(ctx);if(machine&&(!ctx.permissions||!await ctx.permissions.isCurrent()))fail('PERMISSION_CHANGED','','Permission file changed.');requireActive(ctx);
+}
 async function issue(args:IssueArgs,ctx:OperationContext,withPreview=true){
  const input=await loadDraft(inputPath(args.draftPath,ctx)),bundle=await loadTemplate(templatePath(args,ctx)),checked=validateDraft(input,bundle);
  if(!checked.issue)return {checked};
@@ -34,7 +45,7 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
   if(!operations.includes(operation))return rejected('ARGUMENT','Unknown operation.');
   validateArguments(operation,args);requireActive(ctx);
   const write=operation==='gh_issue_submit'||operation==='gh_labels_apply';
-  if(write&&!ctx.interactive)return rejected('APPROVAL_UI_REQUIRED','External changes require a local human confirmation screen.');
+  if(write&&!ctx.interactive&&!ctx.permissions)return rejected('APPROVAL_UI_REQUIRED','External changes require a local human confirmation screen.');
   const options:GhOptions={signal:ctx.signal,beforeStart:()=>active(ctx)};
   if(operation==='gh_issue_form'){const bundle=await loadTemplate(templatePath(args as FormArgs,ctx));requireActive(ctx);const masked=maskDecodedSecrets({template:bundle.template,policy:bundle.policy});return safeResult({status:'generated',data:{yaml:renderForm({...bundle,...masked.value})}});}
   if(operation.startsWith('gh_labels_')){
@@ -45,9 +56,11 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
    const displayed={...preview,sensitive};
    if(operation==='gh_labels_preview')return safeResult({status:'preview',data:displayed});
    if(sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
-   if(!await confirm({operation,text:JSON.stringify(maskDecodedSecrets(displayed).value,null,2),digest:preview.digest},ctx))return rejected('APPROVAL_DENIED','Change was not approved.');
+   const change=validateLabelChange(input),permissionOperation=change.operation==='label-delete'?'forbidden-delete':change.operation==='issue-labels'?'gh_issue_labels':change.operation==='label-create'?'gh_label_create':'gh_label_edit';
+   const machine=await authorize({operation,text:JSON.stringify(maskDecodedSecrets(displayed).value,null,2),digest:preview.digest},ctx,change.repo,permissionOperation);
    requireActive(ctx);const latest=await loadDraft(path),next=await previewLabelChange(latest,options);requireActive(ctx);
    if(next.digest!==preview.digest||next.sensitive||maskDecodedSecrets(parseJson(latest.bytes)).sensitive)return rejected('APPROVAL_MISMATCH','Input or GitHub state changed; preview and approve again.');
+   await recheckAuthority(ctx,machine);
    const result=await applyLabelChange(latest,preview.digest,options);return safeResult({...result});
   }
   const captured=await issue(args as IssueArgs,ctx,operation!=='gh_issue_validate');requireActive(ctx);
@@ -56,9 +69,10 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
   const preview=captured.preview!;
   if(operation==='gh_issue_preview')return safeResult({status:'preview',data:preview});
   if(preview.sensitive)return rejected('SENSITIVE','Remove secret candidates before submitting.');
-  if(!await confirm({operation,text:JSON.stringify(maskDecodedSecrets(preview).value,null,2),digest:preview.digest},ctx))return rejected('APPROVAL_DENIED','Issue was not approved.');
+  const machine=await authorize({operation,text:JSON.stringify(maskDecodedSecrets(preview).value,null,2),digest:preview.digest},ctx,preview.repo);
   requireActive(ctx);const latest=await issue(args as IssueArgs,ctx);requireActive(ctx);
   if(!latest.checked.issue||latest.preview!.digest!==preview.digest||latest.preview!.sensitive)return rejected('APPROVAL_MISMATCH','Input or GitHub state changed; preview and approve again.');
+  await recheckAuthority(ctx,machine);
   const result=await submitIssue(latest.checked.issue,preview.digest,options);
   return safeResult(result.status==='created'?{status:'created',data:{url:result.url}}:{...result});
  }catch(error){return errorResult(error);}
