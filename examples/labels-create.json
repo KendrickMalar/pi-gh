@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "repo": "example/demo",
+  "operation": "label-create",
+  "name": "bug",
+  "color": "d73a4a",
+  "description": "不具合"
+}

@@ -1,0 +1,47 @@
+version: 1
+id: parent
+name: Parent specification
+description: 親Issue：仕様・基本設計とタスク管理
+kind: parent
+modelPolicy: policies/models.yml
+agents:
+  - coding-manager
+  - coder
+  - tester
+fields:
+  - id: purpose
+    label: 目的
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: specification
+    label: 仕様
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: basicDesign
+    label: 基本設計
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: outOfScope
+    label: 対象外
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: tasks
+    label: タスク一覧
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: completionCriteria
+    label: 全体の完了条件
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1

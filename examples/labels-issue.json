@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "repo": "example/demo",
+  "operation": "issue-labels",
+  "issue": 123,
+  "add": [
+    "bug"
+  ],
+  "remove": [
+    "needs-triage"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "name": "pi-gh",
+  "version": "0.1.0",
+  "description": "Prepare and approve GitHub issue workflows inside Pi",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Papillon6814/pi-gh.git"
+  },
+  "pi": {
+    "extensions": [
+      "extensions/index.ts"
+    ]
+  },
+  "files": [
+    "extensions/*.ts",
+    "dist/src",
+    "templates",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.core.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "typecheck": "npm run build && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.extension.json",
+    "test:extension": "npm run build && node --test test/*.test.mjs",
+    "test:core": "npm run build && npm run build:test && node --test dist/test/core/*.test.js",
+    "test:service": "npm run build && npm run build:test && node --test dist/test/service*.test.js",
+    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js dist/test/package.test.js test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@types/node": "^22.15.30",
+    "jiti": "2.6.1",
+    "typescript": "^5.9.2"
+  }
+}

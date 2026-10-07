@@ -1,0 +1,20 @@
+version: 1
+agents:
+  coding-manager:
+    - model: openai-codex/gpt-6.1-sol
+      thinking: medium
+      tier: basic
+  coder:
+    - model: openai-codex/gpt-6-luna
+      thinking: xhigh
+      tier: basic
+    - model: openai-codex/gpt-6.1-sol
+      thinking: medium
+      tier: upper
+  tester:
+    - model: openai-codex/gpt-6-luna
+      thinking: xhigh
+      tier: basic
+    - model: openai-codex/gpt-6.1-sol
+      thinking: medium
+      tier: upper

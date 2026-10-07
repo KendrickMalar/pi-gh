@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "template": "task",
+  "repo": "example/demo",
+  "title": "検索画面を実装する",
+  "parentIssue": 10,
+  "fields": {
+    "purpose": "商品検索画面を追加する",
+    "scope": [
+      "検索入力と結果一覧"
+    ],
+    "outOfScope": [
+      "検索APIの変更"
+    ],
+    "references": [
+      "親Issue #10の承認済み仕様"
+    ],
+    "dependencies": [
+      "なし：既存APIを利用"
+    ],
+    "executionOrder": "入力部と一覧部は別領域で並列作業可能。統合後に検証する。",
+    "acceptanceCriteria": [
+      {
+        "id": "C1",
+        "requirement": "一致する商品を表示する",
+        "verification": "テスト環境で検索入力を行う",
+        "expectedResult": "一致する商品だけ表示される"
+      }
+    ],
+    "estimate": "初期見積もり30〜90分、難易度中。保証ではない。",
+    "risk": "境界条件で結果表示が崩れる可能性",
+    "cost": "未算定：実行時のモデル料金・消費量が未確定"
+  },
+  "agents": {
+    "coding-manager": {
+      "model": "openai-codex/gpt-6.1-sol",
+      "thinking": "medium",
+      "reason": "基本構成"
+    },
+    "coder": {
+      "model": "openai-codex/gpt-6-luna",
+      "thinking": "xhigh",
+      "reason": "基本構成"
+    },
+    "tester": {
+      "model": "openai-codex/gpt-6-luna",
+      "thinking": "xhigh",
+      "reason": "独立検証"
+    }
+  }
+}

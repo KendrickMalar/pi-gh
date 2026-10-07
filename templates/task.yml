@@ -1,0 +1,71 @@
+version: 1
+id: task
+name: Implementation task
+description: タスクIssue：承認済み仕様に基づく実装と検証
+kind: task
+modelPolicy: policies/models.yml
+agents:
+  - coding-manager
+  - coder
+  - tester
+fields:
+  - id: purpose
+    label: 目的
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: scope
+    label: 実装範囲
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: outOfScope
+    label: 対象外
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: references
+    label: 関連資料
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: dependencies
+    label: 依存Issue
+    type: string-list
+    required: true
+    description: 文字列の配列。対象がなければ理由付きで「なし」を記載
+    minItems: 1
+  - id: executionOrder
+    label: 着手順序・並列範囲
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: acceptanceCriteria
+    label: 受け入れ要件
+    type: criteria
+    required: true
+    description: id・requirement・verification・expectedResultを持つ配列
+    minItems: 1
+  - id: estimate
+    label: 工数・難易度
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: risk
+    label: リスク
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
+  - id: cost
+    label: 費用と算定前提
+    type: text
+    required: true
+    description: 内容を記載。不要・未算定なら理由を記載
+    maxLength: 20000
