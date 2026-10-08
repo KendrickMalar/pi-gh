@@ -25,7 +25,7 @@ if(method==='GET'){
 if(s.mode==='write-error'){process.exit(1);}
 if(endpoint.includes('sub_issues')){s.subissues=[11];save();return out(s.issues[11]);}
 if(endpoint.includes('blocked_by')){s.dependencies=[11];save();return out(s.issues[11]);}
-if(Array.isArray(body.labels))body.labels=body.labels.map(n=>(s.labels||[]).find(l=>l.name===n)||{id:0,node_id:'LA_0',name:n,color:'000000',description:''});s.issues[number]={...s.issues[number],...body,updated_at:'v2'};save();out(s.issues[number]);
+if(s.mode==='null-empty-body'&&body.body==='')body.body=null;if(Array.isArray(body.labels))body.labels=body.labels.map(n=>(s.labels||[]).find(l=>l.name===n)||{id:0,node_id:'LA_0',name:n,color:'000000',description:''});s.issues[number]={...s.issues[number],...body,updated_at:'v2'};save();out(s.issues[number]);
 `;
  const gh=join(dir,'gh');await writeFile(gh,script);await chmod(gh,0o755);
  const names=['PATH','PI_GH_TEST_STATE','PI_GH_TEST_LOG','GH_HOST'];const old=Object.fromEntries(names.map(k=>[k,process.env[k]]));Object.assign(process.env,{PATH:dir+':'+process.env.PATH,PI_GH_TEST_STATE:state,PI_GH_TEST_LOG:log,GH_HOST:'wrong.example'});t.after(()=>{for(const k of names){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}});

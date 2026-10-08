@@ -81,3 +81,16 @@ test('conditional changes honour exact machine permissions',async t=>{if(!module
  f.context.permissions={allows:(op,repo)=>op==='gh_issue_edit_if_current'&&repo==='example/demo',isCurrent:async()=>true};
  assert.equal((await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'B2',expectedBodySha256:sha('Body')}),f.context)).status,'applied');
  assert.equal((await run('gh_issue_close_if_current',await f.draft({operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('B2')}),f.context)).status,'rejected');});
+test('emptying a body is recognized when GitHub stores it as null',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);await f.mode('null-empty-body');
+ const r=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(r.status,'applied',JSON.stringify(r));
+ const again=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(again.status,'noop');assert.equal((await writesOf(f)).length,1);
+ const plain=await run('gh_issue_edit',await f.draft({operation:'issue-edit',issue:10,body:''}),f.context);assert.equal(plain.status,'noop');});
+test('a label already present in another case is noop before the exact-name check',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);await withLabels(f,['Type: Scaffold','bug']);
+ const r=await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['BUG'],expectedLabelsSha256:labelsSha(['Type: Scaffold','bug'])}),f.context);
+ assert.equal(r.status,'noop',JSON.stringify(r));});
+test('verification after a label change does not re-list repository labels',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);await withLabels(f);
+ await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['bug'],expectedLabelsSha256:labelsSha(['Type: Scaffold','Stage: Specification'])}),f.context);
+ const calls=await f.calls(),patch=calls.findIndex(c=>c.method==='PATCH');assert.ok(patch>0);
+ assert.equal(calls.slice(patch+1).filter(c=>c.endpoint.includes('/labels')).length,0);});

@@ -36,18 +36,23 @@ function fieldValue(item:JsonObject,fieldId:string):JsonObject|undefined{
 }
 function equalField(item:JsonObject,c:Change){const value=fieldValue(item,c.fieldId!);if(!value)return false;const [key,wanted]=Object.entries(c.value!)[0]!;return value[key==='singleSelectOptionId'?'optionId':key]===wanted;}
 function verifyItem(item:JsonObject,repo:string){const content=object(item.content);if(content.__typename!=='Issue'||object(content.repository).nameWithOwner?.toString().toLowerCase()!==repo.toLowerCase())fail('GITHUB_IDENTITY','','Project item does not belong to the specified repository Issue.');}
-async function snapshot(api:GithubApi,c:Change):Promise<Snapshot>{
+/** GitHub returns an empty body as null; compare bodies with the same normalization as the body digest. */
+const bodyOf=(issue:JsonObject)=>typeof issue.body==='string'?issue.body:'';
+async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  const s:Snapshot={noop:false};
  if(c.issue!==undefined)s.issue=await api.issue(c.repo,c.issue);
- if(c.operation==='issue-edit'){s.noop=(c.title===undefined||c.title===s.issue!.title)&&(c.body===undefined||c.body===s.issue!.body);return s;}
- if(c.operation==='issue-edit-if-current'){s.noop=c.body===s.issue!.body;return s;}
+ if(c.operation==='issue-edit'){s.noop=(c.title===undefined||c.title===s.issue!.title)&&(c.body===undefined||c.body===bodyOf(s.issue!));return s;}
+ if(c.operation==='issue-edit-if-current'){s.noop=c.body===bodyOf(s.issue!);return s;}
  if(c.operation==='issue-close-if-current'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
  if(c.operation==='issue-labels-if-current'){
-  s.repoLabels=(await api.restList('repos/'+c.repo+'/labels')).map(l=>{const n=object(l).name;if(typeof n!=='string')fail('GITHUB_RESPONSE','','Invalid label.');return n;}).sort();
-  for(const a of c.add??[])if(!s.repoLabels.includes(a))fail('LABEL_MISSING','add','Label '+a+' does not exist; create it first (no implicit creation).');
   const current=issueLabelNames(s.issue!),remove=new Set((c.remove??[]).map(labelKey));
   s.desiredLabels=[...current.filter(n=>!remove.has(labelKey(n))),...(c.add??[]).filter(a=>!current.some(n=>labelKey(n)===labelKey(a)))].sort();
-  s.noop=sameSet(current,s.desiredLabels);return s;
+  s.noop=sameSet(current,s.desiredLabels);
+  // The desired state decides first; only a real change needs the exact repository labels (verification skips this read).
+  if(s.noop||verify)return s;
+  s.repoLabels=(await api.restList('repos/'+c.repo+'/labels')).map(l=>{const n=object(l).name;if(typeof n!=='string')fail('GITHUB_RESPONSE','','Invalid label.');return n;}).sort();
+  for(const a of c.add??[])if(!current.some(n=>labelKey(n)===labelKey(a))&&!s.repoLabels.includes(a))fail('LABEL_MISSING','add','Label '+a+' does not exist; create it first (no implicit creation).');
+  return s;
  }
  if(c.operation==='issue-close'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
  if(c.operation==='subissue-add'||c.operation==='dependency-add'){
@@ -113,7 +118,7 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   await recheckAuthority(ctx,machine);mutationStarted=true;
   const result=await apply(api,change,before);
   if(result.status!=='ok')return safeResult({status:result.status,message:result.status==='unknown'?'Change outcome is uncertain; inspect GitHub before retrying.':'Change did not start.'});
-  const verified=await snapshot(api,change);requireActive(ctx);
+  const verified=await snapshot(api,change,true);requireActive(ctx);
   if(!verified.noop)return safeResult({status:'unknown',message:'Write returned, but the requested state could not be verified. Inspect GitHub before retrying.'});
   return safeResult({status:'applied',data:{repo:change.repo,operation:name,...(change.projectId?{projectId:change.projectId}:{}),...(verified.issue?{issue:verified.issue}:{}),...(verified.item?{itemId:verified.item.id}:{})}});
  }catch(error){return mutationStarted?safeResult({status:'unknown',message:'Change or its verification was interrupted; inspect GitHub before retrying.'}):errorResult(error);}
