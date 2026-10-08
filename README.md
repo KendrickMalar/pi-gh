@@ -5,8 +5,8 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.4.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.4.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.5.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.5.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
