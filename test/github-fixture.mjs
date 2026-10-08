@@ -1,7 +1,7 @@
 import {mkdtemp,realpath,writeFile,readFile,chmod} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';
 export async function githubFixture(t){
  const dir=await realpath(await mkdtemp(join(tmpdir(),'pi-gh-api-'))),state=join(dir,'state.json'),log=join(dir,'log.jsonl');
- const initial={issues:{10:{id:1010,node_id:'I_10',number:10,title:'Original',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/10',updated_at:'v1'},11:{id:1011,node_id:'I_11',number:11,title:'Child',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/11',updated_at:'v1'}},subissues:[],dependencies:[],items:[],labels:[],mode:''};
+ const initial={issues:{10:{id:1010,node_id:'I_10',number:10,title:'Original',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/10',updated_at:'v1',labels:[]},11:{id:1011,node_id:'I_11',number:11,title:'Child',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/11',updated_at:'v1',labels:[]}},subissues:[],dependencies:[],items:[],labels:[],mode:''};
  await writeFile(state,JSON.stringify(initial));
  const script=`#!${process.execPath}
 const fs=require('node:fs');const args=process.argv.slice(2),s=JSON.parse(fs.readFileSync(process.env.PI_GH_TEST_STATE,'utf8'));const input=fs.readFileSync(0,'utf8'),body=input?JSON.parse(input):{};const method=args[args.indexOf('--method')+1],endpoint=args.find(x=>x.startsWith('repos/'))||'graphql';fs.appendFileSync(process.env.PI_GH_TEST_LOG,JSON.stringify({args,method,endpoint,body})+'\\n');
@@ -25,7 +25,7 @@ if(method==='GET'){
 if(s.mode==='write-error'){process.exit(1);}
 if(endpoint.includes('sub_issues')){s.subissues=[11];save();return out(s.issues[11]);}
 if(endpoint.includes('blocked_by')){s.dependencies=[11];save();return out(s.issues[11]);}
-s.issues[number]={...s.issues[number],...body,updated_at:'v2'};save();out(s.issues[number]);
+if(Array.isArray(body.labels))body.labels=body.labels.map(n=>(s.labels||[]).find(l=>l.name===n)||{id:0,node_id:'LA_0',name:n,color:'000000',description:''});s.issues[number]={...s.issues[number],...body,updated_at:'v2'};save();out(s.issues[number]);
 `;
  const gh=join(dir,'gh');await writeFile(gh,script);await chmod(gh,0o755);
  const names=['PATH','PI_GH_TEST_STATE','PI_GH_TEST_LOG','GH_HOST'];const old=Object.fromEntries(names.map(k=>[k,process.env[k]]));Object.assign(process.env,{PATH:dir+':'+process.env.PATH,PI_GH_TEST_STATE:state,PI_GH_TEST_LOG:log,GH_HOST:'wrong.example'});t.after(()=>{for(const k of names){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}});

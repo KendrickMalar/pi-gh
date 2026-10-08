@@ -10,7 +10,18 @@ import {labelKey,validateLabelName} from './core/labels-input.js';
 import {githubReads,githubWrites,validateGithubArgs,validateChange,type GithubOperation,type GithubArgs,type Change} from './operation-input.js';
 import type {OperationContext,OperationResult} from './service-types.js';
 
-type Snapshot={issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;noop:boolean};
+type Snapshot={issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;repoLabels?:string[];desiredLabels?:string[];noop:boolean};
+const sha256=(text:string)=>createHash('sha256').update(text,'utf8').digest('hex');
+/** Label-set digest shared with callers: sha256 of JSON.stringify(names sorted by UTF-16 code units). */
+export function labelsSha256(names:readonly string[]):string{return sha256(JSON.stringify([...names].sort()));}
+const issueLabelNames=(issue:JsonObject)=>array(issue.labels).map(l=>{const n=object(l).name;if(typeof n!=='string')fail('GITHUB_RESPONSE','','Invalid Issue label.');return n;});
+const sameSet=(a:string[],b:string[])=>JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
+/** Conditional changes apply only to the exact state the caller confirmed (checked before preview and before writing). */
+function precondition(c:Change,s:Snapshot){
+ if(s.noop)return;
+ if(c.expectedBodySha256!==undefined&&sha256(typeof s.issue!.body==='string'?s.issue!.body:'')!==c.expectedBodySha256)fail('PRECONDITION_FAILED','expectedBodySha256','Issue body differs from the confirmed version; read it again.');
+ if(c.expectedLabelsSha256!==undefined&&labelsSha256(issueLabelNames(s.issue!))!==c.expectedLabelsSha256)fail('PRECONDITION_FAILED','expectedLabelsSha256','Issue labels differ from the confirmed set; read them again.');
+}
 /** Complete repository label list as {name,color,description}; malformed or case-duplicated listings are refused. */
 function listedLabels(raw:unknown[]){
  const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-fA-F]{6}$/.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name as string,color:l.color.toLowerCase(),description:(l.description as string|null|undefined)??''};});
@@ -29,6 +40,15 @@ async function snapshot(api:GithubApi,c:Change):Promise<Snapshot>{
  const s:Snapshot={noop:false};
  if(c.issue!==undefined)s.issue=await api.issue(c.repo,c.issue);
  if(c.operation==='issue-edit'){s.noop=(c.title===undefined||c.title===s.issue!.title)&&(c.body===undefined||c.body===s.issue!.body);return s;}
+ if(c.operation==='issue-edit-if-current'){s.noop=c.body===s.issue!.body;return s;}
+ if(c.operation==='issue-close-if-current'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
+ if(c.operation==='issue-labels-if-current'){
+  s.repoLabels=(await api.restList('repos/'+c.repo+'/labels')).map(l=>{const n=object(l).name;if(typeof n!=='string')fail('GITHUB_RESPONSE','','Invalid label.');return n;}).sort();
+  for(const a of c.add??[])if(!s.repoLabels.includes(a))fail('LABEL_MISSING','add','Label '+a+' does not exist; create it first (no implicit creation).');
+  const current=issueLabelNames(s.issue!),remove=new Set((c.remove??[]).map(labelKey));
+  s.desiredLabels=[...current.filter(n=>!remove.has(labelKey(n))),...(c.add??[]).filter(a=>!current.some(n=>labelKey(n)===labelKey(a)))].sort();
+  s.noop=sameSet(current,s.desiredLabels);return s;
+ }
  if(c.operation==='issue-close'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
  if(c.operation==='subissue-add'||c.operation==='dependency-add'){
   s.related=await api.issue(c.repo,c.relatedIssue!);const suffix=c.operation==='subissue-add'?'sub_issues':'dependencies/blocked_by';
@@ -54,7 +74,9 @@ async function apply(api:GithubApi,c:Change,before:Snapshot){
  const endpoint='repos/'+c.repo+'/issues/'+c.issue;
  switch(c.operation){
   case 'issue-edit':return api.mutateRest(endpoint,'PATCH',{...(c.title!==undefined?{title:c.title}:{}),...(c.body!==undefined?{body:c.body}:{})});
-  case 'issue-close':return api.mutateRest(endpoint,'PATCH',{state:'closed',state_reason:c.reason??'completed'});
+  case 'issue-close':case 'issue-close-if-current':return api.mutateRest(endpoint,'PATCH',{state:'closed',state_reason:c.reason??'completed'});
+  case 'issue-edit-if-current':return api.mutateRest(endpoint,'PATCH',{body:c.body});
+  case 'issue-labels-if-current':return api.mutateRest(endpoint,'PATCH',{labels:before.desiredLabels});
   case 'subissue-add':return api.mutateRest(endpoint+'/sub_issues','POST',{sub_issue_id:before.related!.id});
   case 'dependency-add':return api.mutateRest(endpoint+'/dependencies/blocked_by','POST',{issue_id:before.related!.id});
   case 'project-add-issue':return api.mutateGraphql(addProjectIssueMutation,{projectId:c.projectId,contentId:before.issue!.node_id});
@@ -81,12 +103,12 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   const path=resolve(ctx.cwd,args.changePath!),input=await loadDraft(path),change=validateChange(name,input);
   if(maskDecodedSecrets(change).sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
   if(!ctx.interactive&&!ctx.permissions?.allows(name,change.repo,change.projectId))return rejected('PERMISSION_DENIED','No matching operation/repository/project/actor permission.');
-  const before=await snapshot(api,change);requireActive(ctx);
+  const before=await snapshot(api,change);requireActive(ctx);precondition(change,before);
   const preview={operation:name,change,before};if(maskDecodedSecrets(preview).sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
   if(before.noop)return safeResult({status:'noop',data:{repo:change.repo,operation:name}});
   const hash=digest(input.bytes,before),machine=await authorize({operation:name,text:JSON.stringify(preview,null,2),digest:hash},ctx,change.repo,name,change.projectId);
   machineAuthority=machine;
-  const latest=await loadDraft(path),nextChange=validateChange(name,latest),next=await snapshot(api,nextChange);requireActive(ctx);
+  const latest=await loadDraft(path),nextChange=validateChange(name,latest),next=await snapshot(api,nextChange);requireActive(ctx);precondition(nextChange,next);
   if(digest(latest.bytes,next)!==hash||maskDecodedSecrets({change:nextChange,before:next}).sensitive)return rejected('APPROVAL_MISMATCH','Input or remote state changed; preview again.');
   await recheckAuthority(ctx,machine);mutationStarted=true;
   const result=await apply(api,change,before);

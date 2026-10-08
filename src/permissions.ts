@@ -8,7 +8,7 @@ import {validateRepo} from './core/labels-input.js';
 
 export type PermissionLease={allows:(operation:string,repo:string,projectId?:string)=>boolean;isCurrent:()=>Promise<boolean>};
 export type Actor={child:boolean;headless:boolean};
-const allowed=new Set(['gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update']);
+const allowed=new Set(['gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update']);
 type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boolean;projectIds:string[]};
 export function permissionPath(){return join(homedir(),'.pi','agent','pi-gh-permissions.json');}
 async function capture(path:string):Promise<string|undefined>{
