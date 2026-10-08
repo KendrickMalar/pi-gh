@@ -125,7 +125,7 @@ class Acceptance(unittest.TestCase):
   c=self.child();self.prompt(c);fcntl.ioctl(c.master,termios.TIOCSWINSZ,struct.pack('HHHH',16,40,0,0));os.kill(c.p.pid,signal.SIGWINCH);c.pump(.2);c.send('\x1b[6~'*15+'\x1b');self.done(c);self.assertFalse(self.record.exists())
  def test_print_and_rpc_refuse_changes(self):
   for args in [('--mode','json','--print','OWNED_TOOL_REQUEST'),('--print','OWNED_TOOL_REQUEST')]:
-   r=subprocess.run(self.args(*args),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertNotIn('pi-gh review:',r.stdout)
+   r=subprocess.run(self.args(*args),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertNotIn('pi-gh review:',r.stdout)
   p=subprocess.Popen(self.args('--mode','rpc'),env=self.env,cwd=self.cwd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   try:
    p.stdin.write(b'{"type":"prompt","message":"OWNED_TOOL_REQUEST"}\n');p.stdin.flush();events=[];pending=b'';deadline=time.monotonic()+20
@@ -143,12 +143,12 @@ class Acceptance(unittest.TestCase):
    except subprocess.TimeoutExpired:p.terminate();p.communicate(timeout=3)
  def test_read_only_and_reload(self):
   self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
-  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),20)
+  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),21)
   self.assertIn('validated',json.dumps(self.requests));mark=len(c.data);c.send('/reload\r');c.wait(lambda:'Reloaded' in c.text(mark) or 'reloaded' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
 
  def test_parallel_readonly(self):
   self.parallel=True;self.tool='gh_issue_validate'
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());received=json.dumps(self.requests)
   self.assertIn('validated',received);self.assertIn('generated',received);self.assertNotIn('STALE_OPERATION',received)
  def test_new_session(self):
@@ -156,7 +156,7 @@ class Acceptance(unittest.TestCase):
   mark=len(c.data);c.send('/new\r');c.wait(lambda:'New session started' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
  def test_secret_preview_is_masked(self):
   self.tool='gh_issue_preview';value=json.loads((self.cwd/'draft.json').read_text());value['fields']['purpose']='password=syntheticvalue123';(self.cwd/'draft.json').write_text(json.dumps(value))
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertNotIn('syntheticvalue123',json.dumps(self.requests));self.assertIn('[REDACTED]',json.dumps(self.requests))
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertNotIn('syntheticvalue123',json.dumps(self.requests));self.assertIn('[REDACTED]',json.dumps(self.requests))
  def test_tui_ctrl_c_and_shutdown(self):
   c=self.child();self.prompt(c);c.send('\x03');self.done(c);self.assertFalse(self.record.exists());c.close()
   c=self.child();self.prompt(c);os.killpg(c.p.pid,signal.SIGTERM);c.wait(lambda:c.p.poll() is not None);self.assertFalse(self.record.exists())
@@ -169,17 +169,17 @@ class Acceptance(unittest.TestCase):
   path=directory/'pi-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':'example/demo','operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
  def test_nested_read_and_change_defaults(self):
   self.tool='owned_nested';self.tool_args={'operation':'gh_issue_validate','args':{'draftPath':str(self.cwd/'draft.json')}}
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertIn('validated',json.dumps(self.requests));self.assertFalse(self.record.exists())
   self.requests=[];self.tool_args['operation']='gh_issue_submit'
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertFalse(self.record.exists())
  def test_nested_machine_child_and_hooks(self):
   self.policy();self.env['PI_SUBAGENT_CHILD']='1';self.tool='owned_nested';self.tool_args={'operation':'gh_issue_submit','args':{'draftPath':str(self.cwd/'draft.json')}}
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertTrue(self.record.exists(),r.stderr+json.dumps(self.requests));self.assertIn('created',json.dumps(self.requests))
   self.requests=[];self.env['OWNED_BLOCK_NESTED']='1';before=self.record.read_bytes()
-  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,timeout=20)
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertIn('OWNED_HOOK_BLOCKED',json.dumps(self.requests));self.assertEqual(self.record.read_bytes(),before)
 if __name__=='__main__':
  parser=argparse.ArgumentParser();parser.add_argument('--pi',default=shutil.which('pi'));parser.add_argument('--package',default=str(ROOT));parser.add_argument('--case');OPTIONS=parser.parse_args()

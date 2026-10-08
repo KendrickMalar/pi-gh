@@ -1,7 +1,7 @@
 import {fail,keys,record,parseJson} from './core/data.js';
 import {validateRepo} from './core/labels-input.js';
 import type {CapturedInput} from './core/types.js';
-export const githubReads=['gh_issue_get','gh_issue_list','gh_subissues_list','gh_dependencies_list','gh_project_get','gh_project_items'] as const;
+export const githubReads=['gh_issue_get','gh_issue_list','gh_subissues_list','gh_dependencies_list','gh_project_get','gh_project_items','gh_labels_list'] as const;
 export const githubWrites=['gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update'] as const;
 export type GithubOperation=typeof githubReads[number]|typeof githubWrites[number];
 export type GithubArgs={repo?:string;issue?:number;state?:'open'|'closed'|'all';projectId?:string;changePath?:string};
@@ -13,6 +13,7 @@ export function validateGithubArgs(name:GithubOperation,args:unknown):asserts ar
  if(!record(args))fail('ARGUMENT','','Expected an argument object.');
  if((githubWrites as readonly string[]).includes(name)){keys(args,['changePath'],'arguments');if(typeof args.changePath!=='string'||!args.changePath.trim())fail('ARGUMENT','','Expected changePath.');return;}
  if(name.startsWith('gh_project_')){keys(args,['projectId'],'arguments');nodeId(args.projectId,'PVT_');return;}
+ if(name==='gh_labels_list'){keys(args,['repo'],'arguments');validateRepo(args.repo);return;}
  keys(args,name==='gh_issue_list'?['repo','state']:['repo','issue'],'arguments');validateRepo(args.repo);
  if(name==='gh_issue_list'){if(args.state!==undefined&&!['open','closed','all'].includes(args.state as string))fail('ARGUMENT','','Unknown Issue state.');}else positive(args.issue);
 }

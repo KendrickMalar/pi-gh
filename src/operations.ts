@@ -6,10 +6,17 @@ import {fail} from './core/data.js';
 import {safeResult,errorResult,rejected} from './result.js';
 import {authorize,recheckAuthority} from './service.js';
 import {GithubApi,object,array,addProjectIssueMutation,updateProjectFieldMutation,type JsonObject} from './github-api.js';
+import {labelKey,validateLabelName} from './core/labels-input.js';
 import {githubReads,githubWrites,validateGithubArgs,validateChange,type GithubOperation,type GithubArgs,type Change} from './operation-input.js';
 import type {OperationContext,OperationResult} from './service-types.js';
 
 type Snapshot={issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;noop:boolean};
+/** Complete repository label list as {name,color,description}; malformed or case-duplicated listings are refused. */
+function listedLabels(raw:unknown[]){
+ const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-fA-F]{6}$/.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name as string,color:l.color.toLowerCase(),description:(l.description as string|null|undefined)??''};});
+ if(new Set(labels.map(l=>labelKey(l.name))).size!==labels.length)fail('GITHUB_RESPONSE','','Duplicate labels in listing.');
+ return labels.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+}
 function active(ctx:OperationContext){return !ctx.signal.aborted&&ctx.isCurrent();}
 function requireActive(ctx:OperationContext){if(!active(ctx))fail('STALE_OPERATION','','Session changed or operation was cancelled.');}
 function digest(bytes:Buffer,before:Snapshot){return createHash('sha256').update(bytes).update(JSON.stringify(before)).digest('hex');}
@@ -66,6 +73,7 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   if(!write){
    let data:unknown;
    if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
+   else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
    else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all'))).filter(v=>object(v).pull_request===undefined);
    else {const issue=await api.issue(args.repo!,args.issue!);data=name==='gh_issue_get'?issue:await api.restList('repos/'+args.repo+'/issues/'+args.issue+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
    requireActive(ctx);return safeResult({status:'read',data});
