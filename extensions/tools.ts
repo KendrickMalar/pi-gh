@@ -19,6 +19,7 @@ const repo=Type.String({minLength:3});
 const issueRead=Type.Object({repo,issue:Type.Integer({minimum:1})},{additionalProperties:false});
 const issueList=Type.Object({repo,state:Type.Optional(Type.Union([Type.Literal('open'),Type.Literal('closed'),Type.Literal('all')]))},{additionalProperties:false});
 const projectRead=Type.Object({projectId:Type.String({pattern:'^PVT_[A-Za-z0-9_-]+$'})},{additionalProperties:false});
+const labelsRead=Type.Object({repo},{additionalProperties:false});
 function identity(ctx:ExtensionToolContext){return ctx.sessionManager.getSessionId()+':'+ctx.sessionManager.getLeafId();}
 function render(result:OperationResult){
  const safe=safeResult(result),full=JSON.stringify(safe),limit=32768;
@@ -30,7 +31,7 @@ export function registerTools(pi:ExtensionAPI,scope:RuntimeScope,packageRoot:str
   const write=name==='gh_issue_submit'||name==='gh_labels_apply'||(githubWrites as readonly string[]).includes(name);
   pi.registerTool({
    name,label:name,description:write?'Preview and apply one GitHub change after local human approval or an exact owner-configured permission grant. Never auto-retries unknown outcomes.':'Validate or preview a GitHub workflow. Preview may read remote metadata; never changes GitHub.',
-   parameters:(githubWrites as readonly string[]).includes(name)?labels:(githubReads as readonly string[]).includes(name)?(name==='gh_issue_list'?issueList:name.startsWith('gh_project_')?projectRead:issueRead):name.startsWith('gh_labels_')?labels:name==='gh_issue_form'?form:issue,outputSchema:output,
+   parameters:(githubWrites as readonly string[]).includes(name)?labels:(githubReads as readonly string[]).includes(name)?(name==='gh_issue_list'?issueList:name==='gh_labels_list'?labelsRead:name.startsWith('gh_project_')?projectRead:issueRead):name.startsWith('gh_labels_')?labels:name==='gh_issue_form'?form:issue,outputSchema:output,
    exposure:'direct',executionMode:write?'sequential':'parallel',
    annotations:{readOnlyHint:!write,destructiveHint:write,idempotentHint:!write,openWorldHint:name!=='gh_issue_validate'&&name!=='gh_labels_validate'&&name!=='gh_issue_form'},
    async execute(_id,args,signal,_update,ctx){

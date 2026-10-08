@@ -27,6 +27,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_issue_form | template/templatePath | Issue Form YAMLを返す。ファイル上書きなし |
 | gh_issue_get | repo、issue | 指定Issueを取得。PRは拒否 |
 | gh_issue_list | repo、任意state | Issue一覧。stateはopen/closed/all（既定all）。PRは除外 |
+| gh_labels_list | repo | リポジトリの全ラベル（name・小文字color・description）。全ページ取得、名前順。大小文字違いの重複や不正応答は拒否 |
 | gh_issue_edit | changePath | 既存Issueのtitle/body更新 |
 | gh_issue_close | changePath | 既存Issueをclose |
 | gh_subissues_list | repo、issue | native子Issue一覧 |

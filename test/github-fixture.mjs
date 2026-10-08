@@ -1,7 +1,7 @@
 import {mkdtemp,realpath,writeFile,readFile,chmod} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';
 export async function githubFixture(t){
  const dir=await realpath(await mkdtemp(join(tmpdir(),'pi-gh-api-'))),state=join(dir,'state.json'),log=join(dir,'log.jsonl');
- const initial={issues:{10:{id:1010,node_id:'I_10',number:10,title:'Original',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/10',updated_at:'v1'},11:{id:1011,node_id:'I_11',number:11,title:'Child',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/11',updated_at:'v1'}},subissues:[],dependencies:[],items:[],mode:''};
+ const initial={issues:{10:{id:1010,node_id:'I_10',number:10,title:'Original',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/10',updated_at:'v1'},11:{id:1011,node_id:'I_11',number:11,title:'Child',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/11',updated_at:'v1'}},subissues:[],dependencies:[],items:[],labels:[],mode:''};
  await writeFile(state,JSON.stringify(initial));
  const script=`#!${process.execPath}
 const fs=require('node:fs');const args=process.argv.slice(2),s=JSON.parse(fs.readFileSync(process.env.PI_GH_TEST_STATE,'utf8'));const input=fs.readFileSync(0,'utf8'),body=input?JSON.parse(input):{};const method=args[args.indexOf('--method')+1],endpoint=args.find(x=>x.startsWith('repos/'))||'graphql';fs.appendFileSync(process.env.PI_GH_TEST_LOG,JSON.stringify({args,method,endpoint,body})+'\\n');
@@ -14,6 +14,7 @@ if(endpoint==='graphql'){
  if(body.query.includes('mutation')){if(body.query.includes('addProjectV2ItemById')){s.items=[item];save();return out({data:{addProjectV2ItemById:{item:{id:item.id}}}});}s.items=[{...item,fieldValues:{nodes:[{field:{id:body.variables.fieldId},text:body.variables.value.text,number:body.variables.value.number,date:body.variables.value.date,optionId:body.variables.value.singleSelectOptionId}]}}];save();return out({data:{updateProjectV2ItemFieldValue:{projectV2Item:{id:item.id}}}});}
  return out({data:{node:{__typename:'ProjectV2',id:'PVT_demo',title:'Demo',fields,items:{nodes:s.items,pageInfo:{hasNextPage:s.mode==='pages',endCursor:'next'}}}}});
 }
+if(endpoint.includes('/labels')){const q=new URLSearchParams(endpoint.split('?')[1]||''),page=Number(q.get('page')||1),size=Number(q.get('per_page')||30);return out((s.labels||[]).slice((page-1)*size,page*size));}
 const match=endpoint.match(/issues\\/(\\d+)/),number=match?Number(match[1]):undefined;
 if(!match){return out(Object.values(s.issues));}
 if(method==='GET'){
