@@ -17,7 +17,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 
 | 名前 | 入力 | 動作 |
 |---|---|---|
-| gh_capabilities | `{}` | contractVersionと対応操作。remoteアクセスなし |
+| gh_capabilities | `{}` | contractVersion・対応操作・追加機能（features。例：issue-list-labels）。remoteアクセスなし |
 | gh_issue_validate | draftPath、template/templatePath | オフラインの構造・モデルpolicy検証 |
 | gh_issue_preview | 同上 | 投稿内容・digest。ラベル付きはremote確認 |
 | gh_issue_submit | 同上 | 検証・許可・再確認を経てIssue作成 |
@@ -26,7 +26,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_labels_apply | changePath | 検証・許可・再確認を経てラベル変更 |
 | gh_issue_form | template/templatePath | Issue Form YAMLを返す。ファイル上書きなし |
 | gh_issue_get | repo、issue | 指定Issueを取得。PRは拒否 |
-| gh_issue_list | repo、任意state | Issue一覧。stateはopen/closed/all（既定all）。PRは除外 |
+| gh_issue_list | repo、任意state・labels | Issue一覧。stateはopen/closed/all（既定all）。labels（1〜10件、AND）でGitHub側で絞り込み。PRは除外 |
 | gh_labels_list | repo | リポジトリの全ラベル（name・小文字color・description）。全ページ取得、名前順。大小文字違いの重複や不正応答は拒否 |
 | gh_issue_edit | changePath | 既存Issueのtitle/body更新 |
 | gh_issue_close | changePath | 既存Issueをclose |
