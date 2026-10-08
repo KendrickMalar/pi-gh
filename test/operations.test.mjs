@@ -31,3 +31,53 @@ test('gh_labels_list fails closed on errors and unknown arguments without writin
 test('gh_issue_list filters by labels server-side (AND) and keeps paging/PR exclusion',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);const r=await run('gh_issue_list',{repo:'example/demo',labels:['Type: Scaffold','Scope: Epic']},f.context);assert.equal(r.status,'read',JSON.stringify(r));const lists=(await f.calls()).filter(c=>c.endpoint.startsWith('repos/example/demo/issues?'));assert.ok(lists.length>=1);assert.ok(lists.every(c=>c.endpoint.includes('state=all')&&c.endpoint.includes('labels='+encodeURIComponent('Type: Scaffold,Scope: Epic'))),JSON.stringify(lists.map(c=>c.endpoint)));});
 test('gh_issue_list without labels is unchanged',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);assert.equal((await run('gh_issue_list',{repo:'example/demo'},f.context)).status,'read');assert.ok((await f.calls()).every(c=>!c.endpoint.includes('labels=')));});
 for(const [name,labels] of [['empty',[]],['eleven',Array.from({length:11},(_,i)=>'l'+i)],['comma',['a,b']],['blank',['  ']],['duplicate',['Bug','bug']],['not array','Bug']])test('gh_issue_list rejects labels '+name+' without reading',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);assert.equal((await run('gh_issue_list',{repo:'example/demo',labels},f.context)).status,'rejected');assert.equal((await f.calls()).length,0);});
+import {createHash} from 'node:crypto';
+const sha=t=>createHash('sha256').update(t,'utf8').digest('hex');
+const labelsSha=names=>sha(JSON.stringify([...names].sort()));
+const L=(id,name)=>({id,node_id:'LA_'+id,name,color:'aaaaaa',description:''});
+async function withLabels(f,issueLabels=['Type: Scaffold','Stage: Specification']){const d=await f.data();d.labels=[L(1,'Type: Scaffold'),L(2,'Stage: Specification'),L(3,'Stage: BasicDesign'),L(4,'bug')];d.issues[10].labels=issueLabels.map(n=>d.labels.find(l=>l.name===n));await writeFile(f.state,JSON.stringify(d));}
+const writesOf=async f=>(await f.calls()).filter(c=>c.method!=='GET');
+
+test('gh_issue_edit_if_current applies only when the body hash matches',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);
+ const ok=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'New body',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(ok.status,'applied',JSON.stringify(ok));assert.equal((await f.data()).issues[10].body,'New body');
+ const again=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'New body',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(again.status,'noop','desired state already present');
+ const stale=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'Other',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(stale.status,'rejected');assert.equal(stale.problems[0].code,'PRECONDITION_FAILED');assert.equal((await writesOf(f)).length,1);});
+test('gh_issue_edit_if_current rejects a body changed after approval without writing',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);
+ f.context.confirm=async()=>{const d=await f.data();d.issues[10].body='Concurrent';await writeFile(f.state,JSON.stringify(d));return true;};
+ const r=await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'New',expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(r.status,'rejected');assert.equal((await writesOf(f)).length,0);assert.equal((await f.data()).issues[10].body,'Concurrent');});
+test('gh_issue_labels_if_current replaces exactly the requested labels when the label set matches',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);await withLabels(f);
+ const r=await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['Stage: BasicDesign'],remove:['Stage: Specification'],expectedLabelsSha256:labelsSha(['Type: Scaffold','Stage: Specification'])}),f.context);
+ assert.equal(r.status,'applied',JSON.stringify(r));assert.deepEqual((await f.data()).issues[10].labels.map(l=>l.name).sort(),['Stage: BasicDesign','Type: Scaffold']);
+ const w=await writesOf(f);assert.equal(w.length,1);assert.equal(w[0].endpoint,'repos/example/demo/issues/10');assert.deepEqual(w[0].body.labels.sort(),['Stage: BasicDesign','Type: Scaffold']);
+ const again=await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['Stage: BasicDesign'],remove:['Stage: Specification'],expectedLabelsSha256:labelsSha(['Type: Scaffold','Stage: Specification'])}),f.context);
+ assert.equal(again.status,'noop');});
+test('gh_issue_labels_if_current stops on a stale label set or an unknown label',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);await withLabels(f,['Type: Scaffold','Stage: Specification','bug']);
+ const stale=await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['Stage: BasicDesign'],remove:['Stage: Specification'],expectedLabelsSha256:labelsSha(['Type: Scaffold','Stage: Specification'])}),f.context);
+ assert.equal(stale.status,'rejected');assert.equal(stale.problems[0].code,'PRECONDITION_FAILED');
+ const missing=await run('gh_issue_labels_if_current',await f.draft({operation:'issue-labels-if-current',issue:10,add:['Wave: 9'],expectedLabelsSha256:labelsSha(['Type: Scaffold','Stage: Specification','bug'])}),f.context);
+ assert.equal(missing.status,'rejected');assert.equal(missing.problems[0].code,'LABEL_MISSING');assert.equal((await writesOf(f)).length,0);});
+test('gh_issue_close_if_current closes only the confirmed body',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);
+ const stale=await run('gh_issue_close_if_current',await f.draft({operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('Other')}),f.context);
+ assert.equal(stale.status,'rejected');assert.equal((await writesOf(f)).length,0);
+ const ok=await run('gh_issue_close_if_current',await f.draft({operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('Body')}),f.context);
+ assert.equal(ok.status,'applied',JSON.stringify(ok));assert.equal((await f.data()).issues[10].state,'closed');
+ assert.equal((await run('gh_issue_close_if_current',await f.draft({operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('Body')}),f.context)).status,'noop');});
+test('conditional changes validate their inputs strictly',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);
+ for(const [name,change] of [
+  ['gh_issue_edit_if_current',{operation:'issue-edit-if-current',issue:10,body:'x',expectedBodySha256:'abc'}],
+  ['gh_issue_edit_if_current',{operation:'issue-edit-if-current',issue:10,body:'x'}],
+  ['gh_issue_edit_if_current',{operation:'issue-edit-if-current',issue:10,title:'t',body:'x',expectedBodySha256:sha('Body')}],
+  ['gh_issue_labels_if_current',{operation:'issue-labels-if-current',issue:10,expectedLabelsSha256:sha('x')}],
+  ['gh_issue_labels_if_current',{operation:'issue-labels-if-current',issue:10,add:['a'],remove:['A'],expectedLabelsSha256:sha('x')}],
+  ['gh_issue_close_if_current',{operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('Body'),reason:'duplicate'}],
+  ['gh_issue_edit',{operation:'issue-edit-if-current',issue:10,body:'x',expectedBodySha256:sha('Body')}],
+ ])assert.equal((await run(name,await f.draft(change),f.context)).status,'rejected',JSON.stringify(change));
+ assert.equal((await writesOf(f)).length,0);});
+test('conditional changes honour exact machine permissions',async t=>{if(!module.runGithubOperation)return;const f=await githubFixture(t);f.context.interactive=false;f.context.confirm=async()=>{throw new Error('UI forbidden');};
+ f.context.permissions={allows:(op,repo)=>op==='gh_issue_edit_if_current'&&repo==='example/demo',isCurrent:async()=>true};
+ assert.equal((await run('gh_issue_edit_if_current',await f.draft({operation:'issue-edit-if-current',issue:10,body:'B2',expectedBodySha256:sha('Body')}),f.context)).status,'applied');
+ assert.equal((await run('gh_issue_close_if_current',await f.draft({operation:'issue-close-if-current',issue:10,expectedBodySha256:sha('B2')}),f.context)).status,'rejected');});

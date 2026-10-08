@@ -38,6 +38,9 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_project_items | projectId | Projectの項目・field値一覧 |
 | gh_project_add_issue | changePath | 指定IssueをProjectへ登録 |
 | gh_project_field_update | changePath | text/number/date/single-select field値更新 |
+| gh_issue_edit_if_current | changePath | 確認した本文（expectedBodySha256）のときだけ本文を置き換え |
+| gh_issue_labels_if_current | changePath | 確認したラベル集合（expectedLabelsSha256）のときだけラベルを追加・除去 |
+| gh_issue_close_if_current | changePath | 確認した本文（expectedBodySha256）のときだけclose |
 
 パスは実行時cwd基準。標準templateはtask（既定）/parent。独自templatePathと同時指定できません。Epic/Feature/Task専用テンプレートは利用側で用意します。examplesのexample/demoは架空です。
 
@@ -76,6 +79,14 @@ return { ...nested.result, isError: nested.isError };
 | dependency-add | issue（後続）、relatedIssue（先行） | — |
 | project-add-issue | issue、projectId | — |
 | project-field-update | projectId、itemId、fieldId、value | — |
+| issue-edit-if-current | issue、body、expectedBodySha256 | — |
+| issue-labels-if-current | issue、add/removeの少なくとも一方、expectedLabelsSha256 | — |
+| issue-close-if-current | issue、expectedBodySha256 | reason: completed（既定）/not_planned |
+
+前提条件つき変更（`*_if_current`）の digest は次のとおりです。最初のpreview前と書き込み直前の両方で照合し、違えば`PRECONDITION_FAILED`で書き込みません。目的の状態がすでに実現していれば、前提条件より先に`noop`を返します。GitHub側のatomic compare-and-swapではないため、照合から書き込みまでの間の並行編集は防げません。
+- `expectedBodySha256`：GitHub RESTが返す本文（nullは空文字）のUTF-8のsha256。改行は正規化しません。
+- `expectedLabelsSha256`：Issueのラベル名（大小文字そのまま）をUTF-16コード単位順に並べ、`JSON.stringify`した文字列のUTF-8のsha256。例：`["Scope: Epic","Type: Scaffold"]`。
+- `add`は既存ラベルの完全一致に限り、GitHubによるラベルの自動作成は使いません。
 
 ```json
 {"version":1,"repo":"example/demo","operation":"issue-edit","issue":10,"title":"Updated","body":"Revised specification"}
@@ -109,7 +120,7 @@ valueは`text`、有限の`number`、実在するISO日付`date`、`singleSelect
 - ファイルは現在のOSユーザー所有・mode 0600以下のregular file。ファイルと親ディレクトリのsymlinkは拒否します。未配置は通常の承認経路へ戻ります。壊れたJSON・権限不備は停止します。
 - repo・operationは完全指定。ワイルドカード不可。Project変更にはprojectIdsの完全一致も必要です。
 - 子にはallowChild、UIのない実行にはallowHeadlessがそれぞれ必要です。省略はfalse。
-- 許可できる操作：`gh_issue_submit`、新しい変更ツール6種、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
+- 許可できる操作：`gh_issue_submit`、新しい変更ツール6種、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
 - 許可ファイルの内容・inode・modeを固定し、変更前とghプロセス起動直前に再照合します。取り消された許可は再利用しません。許可ファイルは自動生成・変更しません。
 - 許可はこのツール群の境界です。任意のshell/ファイル編集権限を持つAIや同じOSユーザーの悪意あるプロセスを隔離するサンドボックスではありません。
 

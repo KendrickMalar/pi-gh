@@ -143,7 +143,7 @@ class Acceptance(unittest.TestCase):
    except subprocess.TimeoutExpired:p.terminate();p.communicate(timeout=3)
  def test_read_only_and_reload(self):
   self.tool='gh_issue_validate';c=self.child();c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');self.done(c)
-  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),21)
+  names=[t.get('function',{}).get('name') for t in self.requests[0].get('tools',[])];self.assertEqual(len([n for n in names if n and n.startswith('gh_')]),24)
   self.assertIn('validated',json.dumps(self.requests));mark=len(c.data);c.send('/reload\r');c.wait(lambda:'Reloaded' in c.text(mark) or 'reloaded' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
 
  def test_parallel_readonly(self):

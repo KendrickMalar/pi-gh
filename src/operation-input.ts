@@ -1,12 +1,12 @@
 import {fail,keys,record,parseJson} from './core/data.js';
-import {validateRepo,validateLabelName,labelKey} from './core/labels-input.js';
+import {validateRepo,validateLabelName,validateLabelNames,labelKey} from './core/labels-input.js';
 import type {CapturedInput} from './core/types.js';
 export const githubReads=['gh_issue_get','gh_issue_list','gh_subissues_list','gh_dependencies_list','gh_project_get','gh_project_items','gh_labels_list'] as const;
-export const githubWrites=['gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update'] as const;
+export const githubWrites=['gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update','gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current'] as const;
 export type GithubOperation=typeof githubReads[number]|typeof githubWrites[number];
 export type GithubArgs={repo?:string;issue?:number;state?:'open'|'closed'|'all';labels?:string[];projectId?:string;changePath?:string};
 export type FieldValue={text?:string;number?:number;date?:string;singleSelectOptionId?:string};
-export type Change={version:1;repo:string;operation:string;issue?:number;title?:string;body?:string;reason?:'completed'|'not_planned';relatedIssue?:number;projectId?:string;itemId?:string;fieldId?:string;value?:FieldValue};
+export type Change={version:1;repo:string;operation:string;issue?:number;title?:string;body?:string;reason?:'completed'|'not_planned';relatedIssue?:number;projectId?:string;itemId?:string;fieldId?:string;value?:FieldValue;add?:string[];remove?:string[];expectedBodySha256?:string;expectedLabelsSha256?:string};
 export function positive(value:unknown):asserts value is number{if(!Number.isSafeInteger(value)||(value as number)<1)fail('ARGUMENT','','Expected a positive Issue number.');}
 export function nodeId(value:unknown,prefix:string):asserts value is string{if(typeof value!=='string'||!new RegExp('^'+prefix+'[A-Za-z0-9_-]{1,200}$').test(value))fail('ARGUMENT','','Invalid GitHub node ID.');}
 export function validateGithubArgs(name:GithubOperation,args:unknown):asserts args is GithubArgs{
@@ -30,7 +30,10 @@ const changes:Record<string,{name:GithubOperation;keys:string[]}>= {
  'subissue-add':{name:'gh_subissue_add',keys:['issue','relatedIssue']},
  'dependency-add':{name:'gh_dependency_add',keys:['issue','relatedIssue']},
  'project-add-issue':{name:'gh_project_add_issue',keys:['issue','projectId']},
- 'project-field-update':{name:'gh_project_field_update',keys:['projectId','itemId','fieldId','value']}
+ 'project-field-update':{name:'gh_project_field_update',keys:['projectId','itemId','fieldId','value']},
+ 'issue-edit-if-current':{name:'gh_issue_edit_if_current',keys:['issue','body','expectedBodySha256']},
+ 'issue-labels-if-current':{name:'gh_issue_labels_if_current',keys:['issue','add','remove','expectedLabelsSha256']},
+ 'issue-close-if-current':{name:'gh_issue_close_if_current',keys:['issue','reason','expectedBodySha256']}
 };
 export function validateChange(name:GithubOperation,input:CapturedInput):Change{
  const raw=parseJson(input.bytes);if(!record(raw)||raw.version!==1||typeof raw.operation!=='string')fail('ARGUMENT','','Expected version 1 change.');
@@ -42,7 +45,16 @@ export function validateChange(name:GithubOperation,input:CapturedInput):Change{
   if(raw.title!==undefined&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','','Invalid title.');
   if(raw.body!==undefined&&(typeof raw.body!=='string'||raw.body.length>65536))fail('ARGUMENT','','Invalid body.');
  }
- if(raw.operation==='issue-close'&&raw.reason!==undefined&&!['completed','not_planned'].includes(raw.reason as string))fail('ARGUMENT','','Invalid close reason.');
+ if((raw.operation==='issue-close'||raw.operation==='issue-close-if-current')&&raw.reason!==undefined&&!['completed','not_planned'].includes(raw.reason as string))fail('ARGUMENT','','Invalid close reason.');
+ const sha=(v:unknown,field:string)=>{if(typeof v!=='string'||!/^[0-9a-f]{64}$/.test(v))fail('ARGUMENT',field,'Expected a lowercase 64-hex sha256.');};
+ if(raw.operation==='issue-edit-if-current'){if(typeof raw.body!=='string'||raw.body.length>65536)fail('ARGUMENT','body','Invalid body.');sha(raw.expectedBodySha256,'expectedBodySha256');}
+ if(raw.operation==='issue-close-if-current')sha(raw.expectedBodySha256,'expectedBodySha256');
+ if(raw.operation==='issue-labels-if-current'){
+  sha(raw.expectedLabelsSha256,'expectedLabelsSha256');
+  const add=raw.add===undefined?[]:validateLabelNames(raw.add),remove=raw.remove===undefined?[]:validateLabelNames(raw.remove);
+  if(!add.length&&!remove.length)fail('ARGUMENT','','No label changes requested.');
+  if(add.some(a=>remove.some(r=>labelKey(a)===labelKey(r))))fail('ARGUMENT','','Cannot add and remove the same label.');
+ }
  if(raw.operation==='subissue-add'||raw.operation==='dependency-add'){positive(raw.relatedIssue);if(raw.relatedIssue===raw.issue)fail('ARGUMENT','','Self-links are forbidden.');}
  if(raw.operation.startsWith('project-'))nodeId(raw.projectId,'PVT_');
  if(raw.operation==='project-field-update'){
