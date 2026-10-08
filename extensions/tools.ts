@@ -17,7 +17,7 @@ const output=Type.Object({status:Type.String(),data:Type.Optional(Type.Unknown()
 const operations:Array<Operation|GithubOperation>=['gh_issue_validate','gh_issue_preview','gh_issue_submit','gh_labels_validate','gh_labels_preview','gh_labels_apply','gh_issue_form',...githubReads,...githubWrites];
 const repo=Type.String({minLength:3});
 const issueRead=Type.Object({repo,issue:Type.Integer({minimum:1})},{additionalProperties:false});
-const issueList=Type.Object({repo,state:Type.Optional(Type.Union([Type.Literal('open'),Type.Literal('closed'),Type.Literal('all')]))},{additionalProperties:false});
+const issueList=Type.Object({repo,state:Type.Optional(Type.Union([Type.Literal('open'),Type.Literal('closed'),Type.Literal('all')])),labels:Type.Optional(Type.Array(Type.String({minLength:1,maxLength:50}),{minItems:1,maxItems:10}))},{additionalProperties:false});
 const projectRead=Type.Object({projectId:Type.String({pattern:'^PVT_[A-Za-z0-9_-]+$'})},{additionalProperties:false});
 const labelsRead=Type.Object({repo},{additionalProperties:false});
 function identity(ctx:ExtensionToolContext){return ctx.sessionManager.getSessionId()+':'+ctx.sessionManager.getLeafId();}
@@ -26,7 +26,7 @@ function render(result:OperationResult){
  return {content:[{type:'text' as const,text:full.length<=limit?full:full.slice(0,limit)+'\n[truncated; complete masked data in structuredContent]'}],details:safe,structuredContent:safe as never,isError:['rejected','not-started','unknown'].includes(safe.status)};
 }
 export function registerTools(pi:ExtensionAPI,scope:RuntimeScope,packageRoot:string){
- pi.registerTool({name:'gh_capabilities',label:'GitHub capabilities',description:'Return pi-gh tool contract version and supported operations. No remote access.',parameters:Type.Object({},{additionalProperties:false}),outputSchema:output,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false},async execute(){return render({status:'read',data:{contractVersion:1,operations:[...operations,'gh_capabilities']}});}});
+ pi.registerTool({name:'gh_capabilities',label:'GitHub capabilities',description:'Return pi-gh tool contract version and supported operations. No remote access.',parameters:Type.Object({},{additionalProperties:false}),outputSchema:output,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false},async execute(){return render({status:'read',data:{contractVersion:1,operations:[...operations,'gh_capabilities'],features:['issue-list-labels']}});}});
  for(const name of operations){
   const write=name==='gh_issue_submit'||name==='gh_labels_apply'||(githubWrites as readonly string[]).includes(name);
   pi.registerTool({

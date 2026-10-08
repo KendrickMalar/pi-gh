@@ -74,7 +74,7 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
    let data:unknown;
    if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
    else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
-   else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all'))).filter(v=>object(v).pull_request===undefined);
+   else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
    else {const issue=await api.issue(args.repo!,args.issue!);data=name==='gh_issue_get'?issue:await api.restList('repos/'+args.repo+'/issues/'+args.issue+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
    requireActive(ctx);return safeResult({status:'read',data});
   }
