@@ -87,6 +87,7 @@ return { ...nested.result, isError: nested.isError };
 - `expectedBodySha256`：GitHub RESTが返す本文（nullは空文字）のUTF-8のsha256。改行は正規化しません。
 - `expectedLabelsSha256`：Issueのラベル名（大小文字そのまま）をUTF-16コード単位順に並べ、`JSON.stringify`した文字列のUTF-8のsha256。例：`["Scope: Epic","Type: Scaffold"]`。
 - `add`は既存ラベルの完全一致に限り、GitHubによるラベルの自動作成は使いません。
+- ラベルはIssueのラベル一覧全体を置き換えて更新します（1回のPATCH）。照合から書き込みまでの間に他の人が付けたラベルは消えることがあるため、同じIssueのラベルを並行して変更しないでください。
 
 ```json
 {"version":1,"repo":"example/demo","operation":"issue-edit","issue":10,"title":"Updated","body":"Revised specification"}
