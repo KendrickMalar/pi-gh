@@ -5,7 +5,8 @@ export type LabelChange = Base & (
  {operation:'issue-labels'; issue:number; add?:string[]; remove?:string[]} |
  {operation:'label-create'; name:string; color:string; description?:string} |
  {operation:'label-edit'; name:string; newName?:string; color?:string; description?:string} |
- {operation:'label-delete'; name:string}
+ {operation:'label-delete'; name:string} |
+ {operation:'label-create-many'; labels:{name:string; color:string; description?:string}[]}
 );
 export function labelKey(name:string):string { return name.toLowerCase(); }
 export function validateRepo(value:unknown): asserts value is string {
@@ -28,7 +29,7 @@ export function validateLabelChange(input:CapturedInput):LabelChange {
  validateRepo(v.repo);
  const allowed:Record<string,string[]> = {
  'issue-labels':['issue','add','remove'],'label-create':['name','color','description'],
- 'label-edit':['name','newName','color','description'],'label-delete':['name']
+ 'label-edit':['name','newName','color','description'],'label-delete':['name'],'label-create-many':['labels']
  };
  if(typeof v.operation!=='string'||!Object.hasOwn(allowed,v.operation))fail('LABEL_OPERATION','operation','Unknown label operation.');
  keys(v,['version','repo','operation',...allowed[v.operation]!],'change');
@@ -37,6 +38,17 @@ export function validateLabelChange(input:CapturedInput):LabelChange {
  const add=v.add===undefined?[]:validateLabelNames(v.add), remove=v.remove===undefined?[]:validateLabelNames(v.remove);
  if(!add.length&&!remove.length)fail('LABEL_EMPTY','','No label changes requested.');
  if(add.some(x=>remove.some(y=>labelKey(x)===labelKey(y))))fail('LABEL_CONFLICT','','Cannot add and remove the same label.');
+ } else if(v.operation==='label-create-many') {
+ if(!Array.isArray(v.labels)||v.labels.length<1||v.labels.length>100)fail('LABEL_LIST','labels','Expected 1 to 100 labels to create.');
+ const seen=new Set<string>();
+ v.labels.forEach((l:unknown,i:number)=>{
+  if(!record(l))fail('LABEL_INPUT','labels['+i+']','Expected a label object.');
+  keys(l,['name','color','description'],'labels['+i+']');validateLabelName(l.name);
+  if(typeof l.color!=='string'||! /^[0-9a-fA-F]{6}$/.test(l.color))fail('LABEL_COLOR','labels['+i+'].color','Expected a six-digit hexadecimal color.');
+  if(l.description!==undefined&&(typeof l.description!=='string'||/[\u0000-\u001f\u007f]/.test(l.description)||Array.from(l.description).length>100))
+  fail('LABEL_DESCRIPTION','labels['+i+'].description','Expected a single-line description up to 100 characters.');
+  const key=labelKey(l.name as string);if(seen.has(key))fail('LABEL_DUPLICATE','labels','Duplicate label name.');seen.add(key);
+ });
  } else {
  validateLabelName(v.name);
  if(v.newName!==undefined)validateLabelName(v.newName);

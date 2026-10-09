@@ -17,6 +17,21 @@ export async function applyLabelChange(input:CapturedInput,digest:string,options
  if(preview.sensitive)fail('SENSITIVE','','Remove secret candidates before applying.');
  if(preview.digest!==digest)fail('APPROVAL_MISMATCH','','Input or GitHub state changed; preview and approve again.');
  if(preview.noop)return {status:'noop'};
+ if(change.operation==='label-create-many'){
+ // One listing before (the preview above) and one after; the writes are sequential and stop at the first uncertain result.
+ for(const l of change.labels){
+  const result=await client.request('POST','labels',{name:l.name,color:l.color,description:l.description??''});
+  if(result.status==='not-started'&&!started)return {status:'not-started',message:'Change process did not start.'};
+  started=true;
+  if(result.status!=='ok')throw new Error('Uncertain write');
+ }
+ const all=await repositoryLabels(client);
+ for(const expected of preview.after as Label[]){
+  const current=all.find(l=>l.name===expected.name);
+  if(!current||current.color!==expected.color||current.description!==expected.description)throw new Error('Unconfirmed label');
+ }
+ return {status:'applied'};
+ }
  let suffix:string,method:'POST'|'PATCH'|'DELETE',payload:unknown;
  if(change.operation==='issue-labels'){suffix='issues/'+change.issue;method='PATCH';payload={labels:(preview.after as Label[]).map(l=>l.name)}}
  else if(change.operation==='label-create'){suffix='labels';method='POST';payload={name:change.name,color:change.color,description:change.description??''}}

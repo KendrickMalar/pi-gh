@@ -5,8 +5,8 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.6.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.6.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.7.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.7.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
@@ -23,7 +23,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_issue_submit | 同上 | 検証・許可・再確認を経てIssue作成 |
 | gh_labels_validate | changePath | ラベル変更案のオフライン検証 |
 | gh_labels_preview | changePath | 対象・before/after・影響対象・digest |
-| gh_labels_apply | changePath | 検証・許可・再確認を経てラベル変更 |
+| gh_labels_apply | changePath | 検証・許可・再確認を経てラベル変更。`label-create-many`（`labels`に1〜100件の`{name,color,description?}`）は、存在しないラベルだけをまとめて作る。一覧の取得は前後1回ずつで、作成は順に送り、結果が不確かな時点で止めて`unknown`を返す。許可名は`gh_label_create` |
 | gh_issue_form | template/templatePath | Issue Form YAMLを返す。ファイル上書きなし |
 | gh_issue_get | repo、issue | 指定Issueを取得。PRは拒否 |
 | gh_issue_list | repo、任意state・labels | Issue一覧。stateはopen/closed/all（既定all）。labels（1〜10件、AND）でGitHub側で絞り込み。PRは除外 |

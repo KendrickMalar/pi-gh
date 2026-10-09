@@ -1,4 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {load} from './extension-loader.mjs';
+// Isolate from the developer's real ~/.pi/agent/pi-gh-permissions.json: these tests assert the no-permission paths.
+{const {mkdtemp}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join}=await import('node:path');process.env.HOME=await mkdtemp(join(tmpdir(),'pi-gh-tools-home-'));}
 function api(){const tools=[],handlers=new Map();return {tools,handlers,registerTool:t=>tools.push(t),on:(name,fn)=>{handlers.set(name,fn);return()=>{};}};}
 const context=()=>({cwd:'/synthetic',mode:'rpc',hasUI:true,sessionManager:{getSessionId:()=> 's1',getLeafId:()=> 'l1'},ui:{custom:()=>{throw new Error('UI should not open');}}});
 test('factory registers compatible tools with callable sequential changes',async()=>{const {default:extension}=await load('index.ts'),p=api();await extension(p);for(const name of ['gh_issue_form','gh_issue_preview','gh_issue_submit','gh_issue_validate','gh_labels_apply','gh_labels_preview','gh_labels_validate','gh_capabilities'])assert.ok(p.tools.some(t=>t.name===name));for(const t of p.tools){if(['gh_issue_submit','gh_labels_apply'].includes(t.name)){assert.equal(t.annotations.readOnlyHint,false);assert.equal(t.exposure,'direct');assert.equal(t.executionMode,'sequential');}assert.ok(t.outputSchema);}});
