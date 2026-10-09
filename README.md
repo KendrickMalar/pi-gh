@@ -5,8 +5,8 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.5.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.5.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.6.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.6.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
@@ -119,7 +119,7 @@ valueは`text`、有限の`number`、実在するISO日付`date`、`singleSelect
 ```
 
 - ファイルは現在のOSユーザー所有・mode 0600以下のregular file。ファイルと親ディレクトリのsymlinkは拒否します。未配置は通常の承認経路へ戻ります。壊れたJSON・権限不備は停止します。
-- repo・operationは完全指定。ワイルドカード不可。Project変更にはprojectIdsの完全一致も必要です。
+- repoは`OWNER/REPO`の完全指定か、`OWNER/*`（そのオーナー配下の全リポジトリ。オーナー名は完全一致で、後から作ったリポジトリも含む）。それ以外のワイルドカード（`*`、`*/*`、`ex*/*`、`OWNER/de*`など）は不可。operationは完全指定です。Project変更にはprojectIdsの完全一致も必要です。
 - 子にはallowChild、UIのない実行にはallowHeadlessがそれぞれ必要です。省略はfalse。
 - 許可できる操作：`gh_issue_submit`、新しい変更ツール6種、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
 - 許可ファイルの内容・inode・modeを固定し、変更前とghプロセス起動直前に再照合します。取り消された許可は再利用しません。許可ファイルは自動生成・変更しません。

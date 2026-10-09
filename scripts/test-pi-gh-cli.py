@@ -164,9 +164,9 @@ class Acceptance(unittest.TestCase):
  def test_tree_requires_fresh_confirmation(self):
   c=self.child();self.prompt(c);c.send('\x1b');self.done(c);self.assertFalse(self.record.exists())
   mark=len(c.data);c.send('/owned-tree\r');c.wait(lambda:'OWNED_TREE_DONE' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(mark));self.assertFalse(self.record.exists());c.send('\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
- def policy(self):
+ def policy(self,repo='example/demo'):
   directory=self.home/'.pi/agent';directory.mkdir(parents=True,exist_ok=True)
-  path=directory/'pi-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':'example/demo','operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
+  path=directory/'pi-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':repo,'operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
  def test_nested_read_and_change_defaults(self):
   self.tool='owned_nested';self.tool_args={'operation':'gh_issue_validate','args':{'draftPath':str(self.cwd/'draft.json')}}
   r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
@@ -174,6 +174,14 @@ class Acceptance(unittest.TestCase):
   self.requests=[];self.tool_args['operation']='gh_issue_submit'
   r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
   self.assertEqual(r.returncode,0,r.stderr);self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertFalse(self.record.exists())
+ def test_owner_wildcard_grant_applies_headless(self):
+  self.policy('example/*');self.tool='owned_nested';self.tool_args={'operation':'gh_issue_submit','args':{'draftPath':str(self.cwd/'draft.json')}}
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertTrue(self.record.exists(),r.stderr+json.dumps(self.requests));self.assertIn('created',json.dumps(self.requests))
+ def test_other_owner_wildcard_grant_does_not_apply(self):
+  self.policy('other/*');self.tool='owned_nested';self.tool_args={'operation':'gh_issue_submit','args':{'draftPath':str(self.cwd/'draft.json')}}
+  r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
+  self.assertEqual(r.returncode,0,r.stderr);self.assertIn('APPROVAL_DENIED',json.dumps(self.requests));self.assertNotIn('created',json.dumps(self.requests));self.assertFalse(self.record.exists())
  def test_nested_machine_child_and_hooks(self):
   self.policy();self.env['PI_SUBAGENT_CHILD']='1';self.tool='owned_nested';self.tool_args={'operation':'gh_issue_submit','args':{'draftPath':str(self.cwd/'draft.json')}}
   r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
