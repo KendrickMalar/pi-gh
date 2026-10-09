@@ -10,6 +10,15 @@ export type PermissionLease={allows:(operation:string,repo:string,projectId?:str
 export type Actor={child:boolean;headless:boolean};
 const allowed=new Set(['gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update']);
 type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boolean;projectIds:string[]};
+/** A grant names one exact OWNER/REPO, or OWNER/* for every repository of exactly that owner. No other wildcard exists. */
+function validateGrantRepo(value:unknown):asserts value is string{
+ if(typeof value==='string'&&value.endsWith('/*')){validateRepo(value.slice(0,-1)+'x');return;}
+ validateRepo(value);
+}
+function grantCovers(grantRepo:string,repo:string){
+ const g=grantRepo.toLowerCase(),r=repo.toLowerCase();
+ return g.endsWith('/*')?r.split('/')[0]===g.slice(0,-2):g===r;
+}
 export function permissionPath(){return join(homedir(),'.pi','agent','pi-gh-permissions.json');}
 async function capture(path:string):Promise<string|undefined>{
  const absolute=resolve(path);let parent=dirname(absolute);
@@ -34,7 +43,7 @@ export async function loadPermissions(path:string,actor:Actor):Promise<Permissio
  if(!record(raw))fail('PERMISSION_FORMAT','','Expected permission object.');keys(raw,['version','grants'],'permissions');
  if(raw.version!==1||!Array.isArray(raw.grants)||raw.grants.length>100)fail('PERMISSION_FORMAT','','Expected version 1 and at most 100 grants.');
  const grants:Grant[]=raw.grants.map(value=>{
-  if(!record(value))fail('PERMISSION_FORMAT','','Expected grant object.');keys(value,['repo','operations','allowChild','allowHeadless','projectIds'],'grant');validateRepo(value.repo);
+  if(!record(value))fail('PERMISSION_FORMAT','','Expected grant object.');keys(value,['repo','operations','allowChild','allowHeadless','projectIds'],'grant');validateGrantRepo(value.repo);
   if(!Array.isArray(value.operations)||!value.operations.length||value.operations.some(x=>typeof x!=='string'||!allowed.has(x))||new Set(value.operations).size!==value.operations.length)fail('PERMISSION_FORMAT','','Unknown or repeated operation.');
   for(const key of ['allowChild','allowHeadless'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
   if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[A-Za-z0-9_-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
@@ -42,7 +51,7 @@ export async function loadPermissions(path:string,actor:Actor):Promise<Permissio
  });
  const digest=createHash('sha256').update(captured).digest('hex');
  return {
-  allows:(operation,repo,projectId)=>grants.some(g=>g.repo.toLowerCase()===repo.toLowerCase()&&g.operations.includes(operation)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)&&(!projectId||g.projectIds.includes(projectId))),
+  allows:(operation,repo,projectId)=>grants.some(g=>grantCovers(g.repo,repo)&&g.operations.includes(operation)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)&&(!projectId||g.projectIds.includes(projectId))),
   isCurrent:async()=>{try{const next=await capture(path);return next!==undefined&&createHash('sha256').update(next).digest('hex')===digest;}catch{return false;}}
  };
 }
