@@ -57,7 +57,7 @@ export async function runOperation(operation:Operation,args:IssueArgs|LabelsArgs
    const displayed={...preview,sensitive};
    if(operation==='gh_labels_preview')return safeResult({status:'preview',data:displayed});
    if(sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
-   const change=validateLabelChange(input),permissionOperation=change.operation==='label-delete'?'forbidden-delete':change.operation==='issue-labels'?'gh_issue_labels':change.operation==='label-create'?'gh_label_create':'gh_label_edit';
+   const change=validateLabelChange(input),permissionOperation=change.operation==='label-delete'?'forbidden-delete':change.operation==='issue-labels'?'gh_issue_labels':change.operation==='label-create'||change.operation==='label-create-many'?'gh_label_create':'gh_label_edit';
    const machine=await authorize({operation,text:JSON.stringify(maskDecodedSecrets(displayed).value,null,2),digest:preview.digest},ctx,change.repo,permissionOperation);
    machineAuthority=machine;
    requireActive(ctx);const latest=await loadDraft(path),next=await previewLabelChange(latest,options);requireActive(ctx);

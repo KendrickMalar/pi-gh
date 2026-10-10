@@ -24,7 +24,7 @@ if(path[4]==='labels'&&path.length===5) {
  if(method==='GET'){
  const page=Number(url.searchParams.get('page')||1), per=Number(url.searchParams.get('per_page')||100);
  out(s.mode==='endless'?Array.from({length:100},(_,i)=>({...s.labels[0],id:page*100+i,node_id:'L'+page+'-'+i,name:'p'+page+'-'+i})):s.labels.slice((page-1)*per,page*per));
- }else if(method==='POST'){if(label(payload.name))process.exit(1);const l={id:900,node_id:'L900',name:payload.name,color:payload.color,description:payload.description??''};s.labels.push(l);s.writes=(s.writes||0)+1;save();out(l)}
+ }else if(method==='POST'){if(label(payload.name))process.exit(1);s.posts=(s.posts||0)+1;if(s.failPostAt===s.posts){save();process.exit(1)}const id=899+s.posts;const l={id,node_id:'L'+id,name:payload.name,color:payload.color,description:payload.description??''};s.labels.push(l);s.writes=(s.writes||0)+1;save();if(s.uncertainPostAt===s.posts)process.exit(1);out(l)}
  else process.exit(1);
 } else if(path[4]==='labels'&&path.length===6) {
  const l=label(path[5]);if(!l)process.exit(1);

@@ -12,5 +12,5 @@ test('GitHub changes are callable by wrapper tools and have schema-backed result
  const r=await capability.execute('cap',{},undefined,undefined,{});
  assert.equal(r.structuredContent.data.contractVersion,1);
  assert.ok(r.structuredContent.data.operations.includes('gh_issue_submit'));
- assert.deepEqual(r.structuredContent.data.features,['issue-list-labels']);
+ assert.deepEqual(r.structuredContent.data.features,['issue-list-labels','labels-create-many']);
 });

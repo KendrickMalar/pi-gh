@@ -74,6 +74,10 @@ export async function captureLabelState(change:LabelChange,client:GhClient):Prom
  const after=sortLabels([...issue.labels.filter(l=>!remove.some(r=>r.id===l.id)),...add.filter(l=>!issue.labels.some(x=>x.id===l.id))]);
  return {repository,repo:change.repo,operation:change.operation,issue:issue.identity,before:issue.labels,after,affected:[]};
  }
+ if(change.operation==='label-create-many'){
+ if(change.labels.some(n=>all.some(l=>labelKey(l.name)===labelKey(n.name))))fail('LABEL_EXISTS','','A label to create already exists; create only missing labels.');
+ return {repository,repo:change.repo,operation:change.operation,before:[],after:change.labels.map(n=>({id:0,node_id:'',name:n.name,color:n.color.toLowerCase(),description:n.description??''})),affected:[]};
+ }
  const before=all.find(l=>labelKey(l.name)===labelKey(change.name))??null;
  if(change.operation==='label-create'){
  if(before)fail('LABEL_EXISTS','','Label already exists; use an explicit edit.');
