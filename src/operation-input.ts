@@ -41,7 +41,7 @@ export function validateChange(name:GithubOperation,input:CapturedInput):Change{
  const definition=changes[raw.operation];if(!definition||definition.name!==name)fail('ARGUMENT','','Change does not match the tool operation.');
  keys(raw,['version','repo','operation',...definition.keys],'change');validateRepo(raw.repo);
  if(raw.operation!=='project-field-update'&&raw.operation!=='project-create')positive(raw.issue);
- if(raw.operation==='project-create'&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','title','Invalid project title.');
+ if(raw.operation==='project-create'&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title!==raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','title','Invalid project title.');
  if(raw.operation==='issue-edit'){
   if(raw.title===undefined&&raw.body===undefined)fail('ARGUMENT','','No edit requested.');
   if(raw.title!==undefined&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','','Invalid title.');

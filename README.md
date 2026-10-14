@@ -80,7 +80,7 @@ return { ...nested.result, isError: nested.isError };
 | dependency-add | issue（後続）、relatedIssue（先行） | — |
 | project-add-issue | issue、projectId | — |
 | project-field-update | projectId、itemId、fieldId、value | — |
-| project-create | title（1〜256文字、制御文字なし） | — |
+| project-create | title（1〜256文字、前後の空白・制御文字なし） | — |
 | issue-edit-if-current | issue、body、expectedBodySha256 | — |
 | issue-labels-if-current | issue、add/removeの少なくとも一方、expectedLabelsSha256 | — |
 | issue-close-if-current | issue、expectedBodySha256 | reason: completed（既定）/not_planned |
