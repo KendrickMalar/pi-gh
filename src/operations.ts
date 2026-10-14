@@ -5,12 +5,12 @@ import {maskDecodedSecrets} from './core/secrets.js';
 import {fail} from './core/data.js';
 import {safeResult,errorResult,rejected} from './result.js';
 import {authorize,recheckAuthority} from './service.js';
-import {GithubApi,object,array,addProjectIssueMutation,updateProjectFieldMutation,type JsonObject} from './github-api.js';
+import {GithubApi,object,array,addProjectIssueMutation,updateProjectFieldMutation,createProjectMutation,type JsonObject} from './github-api.js';
 import {labelKey,validateLabelName} from './core/labels-input.js';
 import {githubReads,githubWrites,validateGithubArgs,validateChange,type GithubOperation,type GithubArgs,type Change} from './operation-input.js';
 import type {OperationContext,OperationResult} from './service-types.js';
 
-type Snapshot={issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;repoLabels?:string[];desiredLabels?:string[];noop:boolean};
+type Snapshot={owner?:JsonObject;issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;repoLabels?:string[];desiredLabels?:string[];noop:boolean};
 const sha256=(text:string)=>createHash('sha256').update(text,'utf8').digest('hex');
 /** Label-set digest shared with callers: sha256 of JSON.stringify(names sorted by UTF-16 code units). */
 export function labelsSha256(names:readonly string[]):string{return sha256(JSON.stringify([...names].sort()));}
@@ -41,6 +41,16 @@ const bodyOf=(issue:JsonObject)=>typeof issue.body==='string'?issue.body:'';
 async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  const s:Snapshot={noop:false};
  if(c.issue!==undefined)s.issue=await api.issue(c.repo,c.issue);
+ if(c.operation==='project-create'){
+  // Titles are not unique on GitHub; this tool treats any same-title project of the owner (closed too, case-insensitive) as a duplicate.
+  const o=await api.ownerProjects(c.repo),key=c.title!.trim().toLowerCase();
+  const hits=o.projects.filter(p=>typeof p.title==='string'&&p.title.trim().toLowerCase()===key);
+  s.owner={id:o.owner.id,login:o.owner.login,repositoryId:o.repositoryId};
+  if(!verify){if(hits.length)fail('PROJECT_EXISTS','title','A project with this title already exists for '+o.owner.login+'.');return s;}
+  const hit=hits[0];
+  if(hits.length===1&&hit&&(await api.projectRepos(hit.id as string)).some(r=>r.toLowerCase()===c.repo.toLowerCase())){s.project={id:hit.id,number:hit.number,url:hit.url,title:hit.title};s.noop=true;}
+  return s;
+ }
  if(c.operation==='issue-edit'){s.noop=(c.title===undefined||c.title===s.issue!.title)&&(c.body===undefined||c.body===bodyOf(s.issue!));return s;}
  if(c.operation==='issue-edit-if-current'){s.noop=c.body===bodyOf(s.issue!);return s;}
  if(c.operation==='issue-close-if-current'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
@@ -85,6 +95,7 @@ async function apply(api:GithubApi,c:Change,before:Snapshot){
   case 'subissue-add':return api.mutateRest(endpoint+'/sub_issues','POST',{sub_issue_id:before.related!.id});
   case 'dependency-add':return api.mutateRest(endpoint+'/dependencies/blocked_by','POST',{issue_id:before.related!.id});
   case 'project-add-issue':return api.mutateGraphql(addProjectIssueMutation,{projectId:c.projectId,contentId:before.issue!.node_id});
+  case 'project-create':return api.mutateGraphql(createProjectMutation,{ownerId:before.owner!.id,repositoryId:before.owner!.repositoryId,title:c.title});
   case 'project-field-update':return api.mutateGraphql(updateProjectFieldMutation,{projectId:c.projectId,itemId:c.itemId,fieldId:c.fieldId,value:c.value});
   default:fail('ARGUMENT','','Unknown change.');
  }
@@ -120,6 +131,6 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   if(result.status!=='ok')return safeResult({status:result.status,message:result.status==='unknown'?'Change outcome is uncertain; inspect GitHub before retrying.':'Change did not start.'});
   const verified=await snapshot(api,change,true);requireActive(ctx);
   if(!verified.noop)return safeResult({status:'unknown',message:'Write returned, but the requested state could not be verified. Inspect GitHub before retrying.'});
-  return safeResult({status:'applied',data:{repo:change.repo,operation:name,...(change.projectId?{projectId:change.projectId}:{}),...(verified.issue?{issue:verified.issue}:{}),...(verified.item?{itemId:verified.item.id}:{})}});
+  return safeResult({status:'applied',data:{repo:change.repo,operation:name,...(change.projectId?{projectId:change.projectId}:{}),...(verified.issue?{issue:verified.issue}:{}),...(verified.item?{itemId:verified.item.id}:{}),...(change.operation==='project-create'&&verified.project?{project:verified.project}:{})}});
  }catch(error){return mutationStarted?safeResult({status:'unknown',message:'Change or its verification was interrupted; inspect GitHub before retrying.'}):errorResult(error);}
 }

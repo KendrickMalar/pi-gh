@@ -7,6 +7,9 @@ export const projectFieldsQuery=`query($projectId:ID!,$cursor:String){node(id:$p
 export const projectItemsQuery=`query($projectId:ID!,$cursor:String){node(id:$projectId){__typename ... on ProjectV2{id title items(first:100,after:$cursor){nodes{id content{__typename ... on Issue{id number repository{nameWithOwner}}} fieldValues(first:100){nodes{__typename ... on ProjectV2ItemFieldTextValue{text field{... on ProjectV2Field{id}}} ... on ProjectV2ItemFieldNumberValue{number field{... on ProjectV2Field{id}}} ... on ProjectV2ItemFieldDateValue{date field{... on ProjectV2Field{id}}} ... on ProjectV2ItemFieldSingleSelectValue{optionId field{... on ProjectV2SingleSelectField{id}}}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}}`;
 export const addProjectIssueMutation=`mutation($projectId:ID!,$contentId:ID!){addProjectV2ItemById(input:{projectId:$projectId,contentId:$contentId}){item{id}}}`;
 export const updateProjectFieldMutation=`mutation($projectId:ID!,$itemId:ID!,$fieldId:ID!,$value:ProjectV2FieldValue!){updateProjectV2ItemFieldValue(input:{projectId:$projectId,itemId:$itemId,fieldId:$fieldId,value:$value}){projectV2Item{id}}}`;
+export const projectOwnerQuery=`query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){id nameWithOwner owner{__typename id login ... on User{projectsV2(first:100,after:$cursor){nodes{id number title url closed} pageInfo{hasNextPage endCursor}}} ... on Organization{projectsV2(first:100,after:$cursor){nodes{id number title url closed} pageInfo{hasNextPage endCursor}}}}}}`;
+export const projectReposQuery=`query($projectId:ID!,$cursor:String){node(id:$projectId){__typename ... on ProjectV2{id repositories(first:100,after:$cursor){nodes{nameWithOwner} pageInfo{hasNextPage endCursor}}}}}`;
+export const createProjectMutation=`mutation($ownerId:ID!,$repositoryId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,repositoryId:$repositoryId,title:$title}){projectV2{id number url title}}}`;
 export class GithubApi{
  private bytes=0;
  constructor(private options:GhOptions){}
@@ -35,6 +38,27 @@ export class GithubApi{
    const info=object(connection.pageInfo);if(info.hasNextPage===false)return {id:projectId,title,[kind]:nodes};
    if(info.hasNextPage!==true||typeof info.endCursor!=='string'||!info.endCursor||cursors.has(info.endCursor))fail('GITHUB_LIMIT','','Invalid or repeated pagination cursor.');cursor=info.endCursor;cursors.add(cursor);
   }fail('GITHUB_LIMIT','','Pagination limit exceeded.');
+ }
+ /** Follows one GraphQL connection to its end with the same cursor checks as project(). */
+ private async paged(query:string,variables:JsonObject,connection:(data:JsonObject)=>JsonObject):Promise<{first:JsonObject;nodes:unknown[]}>{
+  const nodes:unknown[]=[],cursors=new Set<string>();let cursor:string|null=null,first:JsonObject|undefined;
+  for(let page=0;page<100;page++){
+   const data=await this.graphql(query,{...variables,cursor});first??=data;const c=connection(data);nodes.push(...array(c.nodes));
+   const info=object(c.pageInfo);if(info.hasNextPage===false)return {first,nodes};
+   if(info.hasNextPage!==true||typeof info.endCursor!=='string'||!info.endCursor||cursors.has(info.endCursor))fail('GITHUB_LIMIT','','Invalid or repeated pagination cursor.');cursor=info.endCursor;cursors.add(cursor);
+  }fail('GITHUB_LIMIT','','Pagination limit exceeded.');
+ }
+ /** Every Projects V2 of the repository's owner (User or Organization), with the IDs needed to create one there. */
+ async ownerProjects(repo:string):Promise<{repositoryId:string;owner:{id:string;login:string};projects:JsonObject[]}>{
+  const [owner,name]=repo.split('/') as [string,string];
+  const r=await this.paged(projectOwnerQuery,{owner,name},data=>{const v=object(data.repository);if(typeof v.nameWithOwner!=='string'||v.nameWithOwner.toLowerCase()!==repo.toLowerCase())fail('GITHUB_IDENTITY','','Expected the exact repository.');return object(object(v.owner).projectsV2);});
+  const v=object(r.first.repository),o=object(v.owner);
+  if(typeof v.id!=='string'||typeof o.id!=='string'||typeof o.login!=='string'||!['User','Organization'].includes(o.__typename as string))fail('GITHUB_RESPONSE','','Unexpected repository owner.');
+  return {repositoryId:v.id,owner:{id:o.id,login:o.login},projects:r.nodes.map(object)};
+ }
+ async projectRepos(projectId:string):Promise<string[]>{
+  const r=await this.paged(projectReposQuery,{projectId},data=>{const p=object(data.node);if(p.__typename!=='ProjectV2'||p.id!==projectId)fail('GITHUB_IDENTITY','','Expected the exact Projects V2 node.');return object(p.repositories);});
+  return r.nodes.map(n=>{const v=object(n).nameWithOwner;if(typeof v!=='string')fail('GITHUB_RESPONSE','','Invalid repository.');return v;});
  }
  async mutateRest(endpoint:string,method:'POST'|'PATCH',body:JsonObject):Promise<{status:'ok'|'not-started'|'unknown';data?:unknown}>{
   const r=await runGh([...this.args(endpoint,method),'--input','-'],JSON.stringify(body),this.options);if(r.status!=='ok')return {status:r.status};
