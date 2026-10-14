@@ -4,9 +4,9 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
-- 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.7.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.7.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.8.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.8.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
@@ -38,6 +38,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_project_items | projectId | Projectの項目・field値一覧 |
 | gh_project_add_issue | changePath | 指定IssueをProjectへ登録 |
 | gh_project_field_update | changePath | text/number/date/single-select field値更新 |
+| gh_project_create | changePath | repoのオーナー配下にProjectを作成し、そのrepoへ紐付け |
 | gh_issue_edit_if_current | changePath | 確認した本文（expectedBodySha256）のときだけ本文を置き換え |
 | gh_issue_labels_if_current | changePath | 確認したラベル集合（expectedLabelsSha256）のときだけラベルを追加・除去 |
 | gh_issue_close_if_current | changePath | 確認した本文（expectedBodySha256）のときだけclose |
@@ -79,6 +80,7 @@ return { ...nested.result, isError: nested.isError };
 | dependency-add | issue（後続）、relatedIssue（先行） | — |
 | project-add-issue | issue、projectId | — |
 | project-field-update | projectId、itemId、fieldId、value | — |
+| project-create | title（1〜256文字、前後の空白・制御文字なし） | — |
 | issue-edit-if-current | issue、body、expectedBodySha256 | — |
 | issue-labels-if-current | issue、add/removeの少なくとも一方、expectedLabelsSha256 | — |
 | issue-close-if-current | issue、expectedBodySha256 | reason: completed（既定）/not_planned |
@@ -98,6 +100,8 @@ return { ...nested.result, isError: nested.isError };
 ```
 
 valueは`text`、有限の`number`、実在するISO日付`date`、`singleSelectOptionId`のうち1つ。fieldの種類、Project所属、option所属、項目のIssue/repo所属を照合します。親子・依存追加は同一repo内のみ、自己参照は禁止。入力のIssue番号をGitHubのdatabase ID/node IDへ解決します。従来の`parentIssue`は本文リンクであり、native親子関係は`gh_subissue_add`で別途設定します。
+
+project-createはrepoのオーナー（UserまたはOrganization）配下に作り、同時にそのrepoへ紐付けます。オーナーの既存Project（closed含む）に同じtitle（前後空白・大文字小文字を無視）があれば`PROJECT_EXISTS`で止め、書き込みません。作成後は「同名がちょうど1件、かつrepoに紐付いている」ことを確認し、満たさなければunknownです。
 
 ## 人間承認と自動実行許可
 
@@ -119,9 +123,9 @@ valueは`text`、有限の`number`、実在するISO日付`date`、`singleSelect
 ```
 
 - ファイルは現在のOSユーザー所有・mode 0600以下のregular file。ファイルと親ディレクトリのsymlinkは拒否します。未配置は通常の承認経路へ戻ります。壊れたJSON・権限不備は停止します。
-- repoは`OWNER/REPO`の完全指定か、`OWNER/*`（そのオーナー配下の全リポジトリ。オーナー名は完全一致で、後から作ったリポジトリも含む）。それ以外のワイルドカード（`*`、`*/*`、`ex*/*`、`OWNER/de*`など）は不可。operationは完全指定です。Project変更にはprojectIdsの完全一致も必要です。
+- repoは`OWNER/REPO`の完全指定か、`OWNER/*`（そのオーナー配下の全リポジトリ。オーナー名は完全一致で、後から作ったリポジトリも含む）。それ以外のワイルドカード（`*`、`*/*`、`ex*/*`、`OWNER/de*`など）は不可。operationは完全指定です。Project変更にはprojectIdsの完全一致も必要です（作成前はIDがないため、`gh_project_create`はrepoとoperationだけで判定します）。
 - 子にはallowChild、UIのない実行にはallowHeadlessがそれぞれ必要です。省略はfalse。
-- 許可できる操作：`gh_issue_submit`、新しい変更ツール6種、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
+- 許可できる操作：`gh_issue_submit`、新しい変更ツール7種（`gh_project_create`を含む）、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
 - 許可ファイルの内容・inode・modeを固定し、変更前とghプロセス起動直前に再照合します。取り消された許可は再利用しません。許可ファイルは自動生成・変更しません。
 - 許可はこのツール群の境界です。任意のshell/ファイル編集権限を持つAIや同じOSユーザーの悪意あるプロセスを隔離するサンドボックスではありません。
 
@@ -137,7 +141,7 @@ ghはshellなし・固定argv/stdin・github.com固定。RESTは明示methodとA
 
 Issue用YAMLはfieldsのrequired/options/順序/制限とmodels policyを正本にします。従来の上位tierにはupperTierApprovalが必要ですが、その文字列だけで真正な課金承認は証明できません。テンプレートと利用可能なモデルは別問題です。
 
-対象外：assignee変更、コメント投稿、クロスrepo親子・依存、関係解除、Project作成/削除/field定義/view変更、iteration等のfield更新、一括write、Herdr/Scaffoldの工程判断。
+対象外：assignee変更、コメント投稿、クロスrepo親子・依存、関係解除、Project削除/field定義/view変更、iteration等のfield更新、一括write、Herdr/Scaffoldの工程判断。
 
 ## 開発・検証
 

@@ -8,7 +8,7 @@ import {validateRepo} from './core/labels-input.js';
 
 export type PermissionLease={allows:(operation:string,repo:string,projectId?:string)=>boolean;isCurrent:()=>Promise<boolean>};
 export type Actor={child:boolean;headless:boolean};
-const allowed=new Set(['gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update']);
+const allowed=new Set(['gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update','gh_project_create']);
 type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boolean;projectIds:string[]};
 /** A grant names one exact OWNER/REPO, or OWNER/* for every repository of exactly that owner. No other wildcard exists. */
 function validateGrantRepo(value:unknown):asserts value is string{
