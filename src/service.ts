@@ -27,6 +27,13 @@ export async function authorize(view:ApprovalView,ctx:OperationContext,repo:stri
  if(ctx.permissions?.allows(permissionOperation,repo,projectId)){
   if(!await ctx.permissions.isCurrent())fail('PERMISSION_CHANGED','','Permission file changed.');return true;
  }
+ // The owner let the agent approve this repository's writes itself: logged first, then treated like a granted change.
+ if(ctx.permissions?.agentApproves?.(permissionOperation,repo,projectId)){
+  if(!await ctx.permissions.isCurrent())fail('PERMISSION_CHANGED','','Permission file changed.');
+  try{await ctx.permissions.recordAgentApproval?.({operation:permissionOperation,repo,...(projectId?{projectId}:{}),digest:view.digest});}
+  catch{fail('AGENT_APPROVAL_LOG','','The agent approval could not be logged; nothing was changed.');}
+  return true;
+ }
  if(!ctx.interactive||!await confirm(view,ctx))fail('APPROVAL_DENIED','','Change was not approved.');return false;
 }
 export async function recheckAuthority(ctx:OperationContext,machine:boolean){

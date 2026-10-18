@@ -118,7 +118,7 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   }
   const path=resolve(ctx.cwd,args.changePath!),input=await loadDraft(path),change=validateChange(name,input);
   if(maskDecodedSecrets(change).sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
-  if(!ctx.interactive&&!ctx.permissions?.allows(name,change.repo,change.projectId))return rejected('PERMISSION_DENIED','No matching operation/repository/project/actor permission.');
+  if(!ctx.interactive&&!ctx.permissions?.allows(name,change.repo,change.projectId)&&!ctx.permissions?.agentApproves?.(name,change.repo,change.projectId))return rejected('PERMISSION_DENIED','No matching operation/repository/project/actor permission.');
   const before=await snapshot(api,change);requireActive(ctx);precondition(change,before);
   const preview={operation:name,change,before};if(maskDecodedSecrets(preview).sensitive)return rejected('SENSITIVE','Remove secret candidates before applying.');
   if(before.noop)return safeResult({status:'noop',data:{repo:change.repo,operation:name}});
