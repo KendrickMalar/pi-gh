@@ -127,6 +127,7 @@ project-createはrepoのオーナー（UserまたはOrganization）配下に作�
 - 子にはallowChild、UIのない実行にはallowHeadlessがそれぞれ必要です。省略はfalse。
 - 許可できる操作：`gh_issue_submit`、新しい変更ツール7種（`gh_project_create`を含む）、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
 - grantに`"agentApproval": true`を書くと、そのrepoへの書き込みのうち、`operations`に無いもの（許可できる操作に限る。Projectは任意のprojectId）も、確認画面を出さずにAIの判断として実行します（AI承認）。allowChild・allowHeadlessの条件はそのまま効きます。ラベル削除は禁止のままです。AI承認した操作は、実行の前に許可ファイルと同じディレクトリの`pi-gh-agent-approvals.jsonl`（mode 0600）へ1行ずつ記録します（時刻・操作・repo・projectId・内容digest）。記録できなければ変更しません。
+- AI承認は、許可ファイルと同じディレクトリの`pi-gh-agent-approval.json`にも書けます（`{"version":1,"grants":[{"repo":"OWNER/*","allowHeadless":true}]}`。grantのキーは`repo`・`allowChild`・`allowHeadless`だけで、許可ファイルと同じ所有者・mode・symlinkの条件）。0.8.0以前は`agentApproval`キーを知らずに許可ファイルごと停止するので、古い版と同じ許可ファイルを共有する間はこちらに置き、許可ファイルは旧形式のままにします。このファイルの変更でも許可は失効します。
 - 許可ファイルの内容・inode・modeを固定し、変更前とghプロセス起動直前に再照合します。取り消された許可は再利用しません。許可ファイルは自動生成・変更しません。
 - 許可はこのツール群の境界です。任意のshell/ファイル編集権限を持つAIや同じOSユーザーの悪意あるプロセスを隔離するサンドボックスではありません。
 
