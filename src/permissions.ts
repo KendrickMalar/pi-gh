@@ -6,10 +6,12 @@ import {createHash} from 'node:crypto';
 import {fail,keys,record,parseJson} from './core/data.js';
 import {validateRepo} from './core/labels-input.js';
 
-export type PermissionLease={allows:(operation:string,repo:string,projectId?:string)=>boolean;isCurrent:()=>Promise<boolean>};
+export type AgentApprovalEntry={operation:string;repo:string;projectId?:string;digest:string};
+/** `agentApproves`: an agentApproval grant lets the agent itself approve any allowed write of its repos (never a forbidden one); each such approval is logged with `recordAgentApproval` first. */
+export type PermissionLease={allows:(operation:string,repo:string,projectId?:string)=>boolean;isCurrent:()=>Promise<boolean>;agentApproves?:(operation:string,repo:string,projectId?:string)=>boolean;recordAgentApproval?:(entry:AgentApprovalEntry)=>Promise<void>};
 export type Actor={child:boolean;headless:boolean};
 const allowed=new Set(['gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_issue_submit','gh_label_create','gh_label_edit','gh_issue_labels','gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update','gh_project_create']);
-type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boolean;projectIds:string[]};
+type Grant={repo:string;operations:string[];allowChild:boolean;allowHeadless:boolean;projectIds:string[];agentApproval:boolean};
 /** A grant names one exact OWNER/REPO, or OWNER/* for every repository of exactly that owner. No other wildcard exists. */
 function validateGrantRepo(value:unknown):asserts value is string{
  if(typeof value==='string'&&value.endsWith('/*')){validateRepo(value.slice(0,-1)+'x');return;}
@@ -37,21 +39,31 @@ async function capture(path:string):Promise<string|undefined>{
   return JSON.stringify({inode:s.ino,device:s.dev,mode:s.mode,bytes:bytes.toString('base64')});
  }finally{await handle.close();}
 }
+/** Appends one JSON line (owner-only file, never through a symlink). A write is not made when this fails. */
+async function appendAgentApproval(log:string,entry:AgentApprovalEntry){
+ const handle=await open(log,constants.O_WRONLY|constants.O_APPEND|constants.O_CREAT|constants.O_NOFOLLOW,0o600);
+ try{
+  const s=await handle.stat();if(!s.isFile()||(s.mode&0o077)!==0||(process.getuid&&s.uid!==process.getuid()))fail('PERMISSION_FILE','','Use an owner-only regular agent approval log.');
+  await handle.write(JSON.stringify({at:new Date().toISOString(),approvedBy:'agent',...entry})+'\n');
+ }finally{await handle.close();}
+}
 export async function loadPermissions(path:string,actor:Actor):Promise<PermissionLease|undefined>{
  const captured=await capture(path);if(captured===undefined)return undefined;
  const encoded=JSON.parse(captured) as {bytes:string};const raw=parseJson(Buffer.from(encoded.bytes,'base64'));
  if(!record(raw))fail('PERMISSION_FORMAT','','Expected permission object.');keys(raw,['version','grants'],'permissions');
  if(raw.version!==1||!Array.isArray(raw.grants)||raw.grants.length>100)fail('PERMISSION_FORMAT','','Expected version 1 and at most 100 grants.');
  const grants:Grant[]=raw.grants.map(value=>{
-  if(!record(value))fail('PERMISSION_FORMAT','','Expected grant object.');keys(value,['repo','operations','allowChild','allowHeadless','projectIds'],'grant');validateGrantRepo(value.repo);
+  if(!record(value))fail('PERMISSION_FORMAT','','Expected grant object.');keys(value,['repo','operations','allowChild','allowHeadless','projectIds','agentApproval'],'grant');validateGrantRepo(value.repo);
   if(!Array.isArray(value.operations)||!value.operations.length||value.operations.some(x=>typeof x!=='string'||!allowed.has(x))||new Set(value.operations).size!==value.operations.length)fail('PERMISSION_FORMAT','','Unknown or repeated operation.');
-  for(const key of ['allowChild','allowHeadless'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
+  for(const key of ['allowChild','allowHeadless','agentApproval'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
   if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[A-Za-z0-9_-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
-  return {repo:value.repo as string,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[]};
+  return {repo:value.repo as string,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[],agentApproval:value.agentApproval===true};
  });
  const digest=createHash('sha256').update(captured).digest('hex');
  return {
   allows:(operation,repo,projectId)=>grants.some(g=>grantCovers(g.repo,repo)&&g.operations.includes(operation)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)&&(!projectId||g.projectIds.includes(projectId))),
+  agentApproves:(operation,repo)=>allowed.has(operation)&&grants.some(g=>g.agentApproval&&grantCovers(g.repo,repo)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)),
+  recordAgentApproval:entry=>appendAgentApproval(join(dirname(resolve(path)),'pi-gh-agent-approvals.jsonl'),entry),
   isCurrent:async()=>{try{const next=await capture(path);return next!==undefined&&createHash('sha256').update(next).digest('hex')===digest;}catch{return false;}}
  };
 }
