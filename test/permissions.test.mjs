@@ -28,3 +28,16 @@ test('agent approvals are appended to an owner-only log next to the permission f
  const log=join(f.dir,'pi-gh-agent-approvals.jsonl'),lines=(await readFile(log,'utf8')).trim().split('\n').map(l=>JSON.parse(l));
  assert.deepEqual(lines.map(l=>[l.operation,l.repo,l.projectId,l.digest]),[['gh_issue_close','example/demo',undefined,'d1'],['gh_project_field_update','example/demo','PVT_x','d2']]);
  assert.ok(lines.every(l=>typeof l.at==='string'&&l.approvedBy==='agent'));assert.equal((await stat(log)).mode&0o777,0o600);});
+test('agent approval grants can live in pi-gh-agent-approval.json beside an old-form permission file',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'pi-gh-agent-approval.json');
+ assert.equal((await module.loadPermissions(f.path,{child:false,headless:false})).agentApproves('gh_issue_close','example/demo'),false,'no sidecar, no agent approval');
+ await writeFile(side,JSON.stringify({version:1,grants:[{repo:'example/*',allowHeadless:true}]}),{mode:0o600});
+ const p=await module.loadPermissions(f.path,{child:false,headless:true});
+ assert.equal(p.allows('gh_issue_close','example/demo'),false,'the exact grants are unchanged');
+ assert.equal(p.agentApproves('gh_issue_close','example/demo'),true);
+ assert.equal(p.agentApproves('forbidden-delete','example/demo'),false);
+ assert.equal((await module.loadPermissions(f.path,{child:true,headless:true})).agentApproves('gh_issue_close','example/demo'),false,'allowChild defaults to false');
+ assert.equal(await p.isCurrent(),true);
+ await writeFile(side,JSON.stringify({version:1,grants:[]}));assert.equal(await p.isCurrent(),false,'a sidecar change invalidates the lease');});
+test('a broken or insecure sidecar fails closed',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'pi-gh-agent-approval.json');
+ for(const bad of ['{x',JSON.stringify({version:1,grants:[{repo:'*'}]}),JSON.stringify({version:1,grants:[{repo:'example/*',operations:['gh_issue_close']}]}),JSON.stringify({version:1,grants:[{repo:'example/*',allowChild:'yes'}]})]){await writeFile(side,bad,{mode:0o600});await assert.rejects(()=>module.loadPermissions(f.path,{child:false,headless:false}),undefined,bad);}
+ await writeFile(side,JSON.stringify({version:1,grants:[]}),{mode:0o644});await chmod(side,0o644);await assert.rejects(()=>module.loadPermissions(f.path,{child:false,headless:false}));});

@@ -49,6 +49,7 @@ async function appendAgentApproval(log:string,entry:AgentApprovalEntry){
 }
 export async function loadPermissions(path:string,actor:Actor):Promise<PermissionLease|undefined>{
  const captured=await capture(path);if(captured===undefined)return undefined;
+ const sidePath=agentApprovalPath(path),side=await capture(sidePath);
  const encoded=JSON.parse(captured) as {bytes:string};const raw=parseJson(Buffer.from(encoded.bytes,'base64'));
  if(!record(raw))fail('PERMISSION_FORMAT','','Expected permission object.');keys(raw,['version','grants'],'permissions');
  if(raw.version!==1||!Array.isArray(raw.grants)||raw.grants.length>100)fail('PERMISSION_FORMAT','','Expected version 1 and at most 100 grants.');
@@ -59,11 +60,27 @@ export async function loadPermissions(path:string,actor:Actor):Promise<Permissio
   if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[A-Za-z0-9_-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
   return {repo:value.repo as string,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[],agentApproval:value.agentApproval===true};
  });
- const digest=createHash('sha256').update(captured).digest('hex');
+ // The sidecar adds agent-approval grants without changing the permission file, which older pi-gh versions must keep reading.
+ const sideGrants:Grant[]=side===undefined?[]:decodeSidecar(side);
+ const digestOf=(a:string,b:string|undefined)=>createHash('sha256').update(a).update('\0').update(b??'').digest('hex');
+ const digest=digestOf(captured,side);
+ const agentGrants=[...grants.filter(g=>g.agentApproval),...sideGrants];
  return {
   allows:(operation,repo,projectId)=>grants.some(g=>grantCovers(g.repo,repo)&&g.operations.includes(operation)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)&&(!projectId||g.projectIds.includes(projectId))),
-  agentApproves:(operation,repo)=>allowed.has(operation)&&grants.some(g=>g.agentApproval&&grantCovers(g.repo,repo)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)),
+  agentApproves:(operation,repo)=>allowed.has(operation)&&agentGrants.some(g=>grantCovers(g.repo,repo)&&(!actor.child||g.allowChild)&&(!actor.headless||g.allowHeadless)),
   recordAgentApproval:entry=>appendAgentApproval(join(dirname(resolve(path)),'pi-gh-agent-approvals.jsonl'),entry),
-  isCurrent:async()=>{try{const next=await capture(path);return next!==undefined&&createHash('sha256').update(next).digest('hex')===digest;}catch{return false;}}
+  isCurrent:async()=>{try{const next=await capture(path);return next!==undefined&&digestOf(next,await capture(sidePath))===digest;}catch{return false;}}
  };
+}
+/** pi-gh-agent-approval.json beside the permission file: {version:1, grants:[{repo, allowChild?, allowHeadless?}]}. */
+export function agentApprovalPath(permissionFile:string){return join(dirname(resolve(permissionFile)),'pi-gh-agent-approval.json');}
+function decodeSidecar(captured:string):Grant[]{
+ const raw=parseJson(Buffer.from((JSON.parse(captured) as {bytes:string}).bytes,'base64'));
+ if(!record(raw))fail('PERMISSION_FORMAT','','Expected agent approval object.');keys(raw,['version','grants'],'agent approvals');
+ if(raw.version!==1||!Array.isArray(raw.grants)||raw.grants.length>100)fail('PERMISSION_FORMAT','','Expected version 1 and at most 100 agent approval grants.');
+ return raw.grants.map(value=>{
+  if(!record(value))fail('PERMISSION_FORMAT','','Expected agent approval grant object.');keys(value,['repo','allowChild','allowHeadless'],'agent approval grant');validateGrantRepo(value.repo);
+  for(const key of ['allowChild','allowHeadless'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
+  return {repo:value.repo as string,operations:[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:[],agentApproval:true};
+ });
 }
