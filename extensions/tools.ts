@@ -17,6 +17,7 @@ const output=Type.Object({status:Type.String(),data:Type.Optional(Type.Unknown()
 const operations:Array<Operation|GithubOperation>=['gh_issue_validate','gh_issue_preview','gh_issue_submit','gh_labels_validate','gh_labels_preview','gh_labels_apply','gh_issue_form',...githubReads,...githubWrites];
 const repo=Type.String({minLength:3});
 const issueRead=Type.Object({repo,issue:Type.Integer({minimum:1})},{additionalProperties:false});
+const issueGet=Type.Object({repo,issue:Type.Integer({minimum:1}),bodyPath:Type.Optional(Type.String({minLength:2,description:'Absolute path; the raw Issue body is written there (mode 0600).'}))},{additionalProperties:false});
 const issueList=Type.Object({repo,state:Type.Optional(Type.Union([Type.Literal('open'),Type.Literal('closed'),Type.Literal('all')])),labels:Type.Optional(Type.Array(Type.String({minLength:1,maxLength:50}),{minItems:1,maxItems:10}))},{additionalProperties:false});
 const projectRead=Type.Object({projectId:Type.String({pattern:'^PVT_[A-Za-z0-9_-]+$'})},{additionalProperties:false});
 const labelsRead=Type.Object({repo},{additionalProperties:false});
@@ -30,8 +31,8 @@ export function registerTools(pi:ExtensionAPI,scope:RuntimeScope,packageRoot:str
  for(const name of operations){
   const write=name==='gh_issue_submit'||name==='gh_labels_apply'||(githubWrites as readonly string[]).includes(name);
   pi.registerTool({
-   name,label:name,description:write?'Preview and apply one GitHub change after local human approval or an exact owner-configured permission grant. Never auto-retries unknown outcomes.':'Validate or preview a GitHub workflow. Preview may read remote metadata; never changes GitHub.',
-   parameters:(githubWrites as readonly string[]).includes(name)?labels:(githubReads as readonly string[]).includes(name)?(name==='gh_issue_list'?issueList:name==='gh_labels_list'?labelsRead:name.startsWith('gh_project_')?projectRead:issueRead):name.startsWith('gh_labels_')?labels:name==='gh_issue_form'?form:issue,outputSchema:output,
+   name,label:name,description:write?'Preview and apply one GitHub change after local human approval or an exact owner-configured permission grant. Never auto-retries unknown outcomes.':name==='gh_issue_get'?'Read one Issue (PRs are refused). data adds bodySha256 and bodyBytes of the raw body (null is empty); with bodyPath the raw body is also written to that local file. Never changes GitHub.':'Validate or preview a GitHub workflow. Preview may read remote metadata; never changes GitHub.',
+   parameters:(githubWrites as readonly string[]).includes(name)?labels:(githubReads as readonly string[]).includes(name)?(name==='gh_issue_list'?issueList:name==='gh_issue_get'?issueGet:name==='gh_labels_list'?labelsRead:name.startsWith('gh_project_')?projectRead:issueRead):name.startsWith('gh_labels_')?labels:name==='gh_issue_form'?form:issue,outputSchema:output,
    exposure:'direct',executionMode:write?'sequential':'parallel',
    annotations:{readOnlyHint:!write,destructiveHint:write,idempotentHint:!write,openWorldHint:name!=='gh_issue_validate'&&name!=='gh_labels_validate'&&name!=='gh_issue_form'},
    async execute(_id,args,signal,_update,ctx){

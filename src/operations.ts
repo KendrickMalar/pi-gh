@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
+import {open,constants} from 'node:fs/promises';
 import {loadDraft} from './core/draft.js';
 import {maskDecodedSecrets} from './core/secrets.js';
 import {fail} from './core/data.js';
@@ -29,6 +30,10 @@ function listedLabels(raw:unknown[]){
  return labels.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 }
 function active(ctx:OperationContext){return !ctx.signal.aborted&&ctx.isCurrent();}
+async function writeBody(path:string,body:string){
+ let file;try{file=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_TRUNC|constants.O_NOFOLLOW,0o600);}catch{fail('ARGUMENT','bodyPath','Cannot write a regular file at bodyPath (symlinks and missing directories are refused).');}
+ try{if(!(await file.stat()).isFile())fail('ARGUMENT','bodyPath','bodyPath is not a regular file.');await file.chmod(0o600);await file.writeFile(body,'utf8');}finally{await file.close();}
+}
 function requireActive(ctx:OperationContext){if(!active(ctx))fail('STALE_OPERATION','','Session changed or operation was cancelled.');}
 function digest(bytes:Buffer,before:Snapshot){return createHash('sha256').update(bytes).update(JSON.stringify(before)).digest('hex');}
 function fieldValue(item:JsonObject,fieldId:string):JsonObject|undefined{
@@ -113,7 +118,13 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
    if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
    else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
    else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
-   else {const issue=await api.issue(args.repo!,args.issue!);data=name==='gh_issue_get'?issue:await api.restList('repos/'+args.repo+'/issues/'+args.issue+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
+   else if(name==='gh_issue_get'){
+    // The hash and the file use the raw body (null is empty), so callers never copy masked or escaped result text.
+    const issue=await api.issue(args.repo!,args.issue!),body=typeof issue.body==='string'?issue.body:'';requireActive(ctx);
+    if(args.bodyPath!==undefined)await writeBody(args.bodyPath,body);
+    data={...issue,bodySha256:sha256(body),bodyBytes:Buffer.byteLength(body,'utf8'),...(args.bodyPath!==undefined?{bodyPath:args.bodyPath}:{})};
+   }
+   else {await api.issue(args.repo!,args.issue!);data=await api.restList('repos/'+args.repo+'/issues/'+args.issue+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
    requireActive(ctx);return safeResult({status:'read',data});
   }
   const path=resolve(ctx.cwd,args.changePath!),input=await loadDraft(path),change=validateChange(name,input);
