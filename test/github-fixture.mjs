@@ -4,7 +4,7 @@ export async function githubFixture(t){
  const initial={issues:{10:{id:1010,node_id:'I_10',number:10,title:'Original',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/10',updated_at:'v1',labels:[]},11:{id:1011,node_id:'I_11',number:11,title:'Child',body:'Body',state:'open',html_url:'https://github.com/example/demo/issues/11',updated_at:'v1',labels:[]}},subissues:[],dependencies:[],items:[],labels:[],mode:''};
  await writeFile(state,JSON.stringify(initial));
  const script=`#!${process.execPath}
-const fs=require('node:fs');const args=process.argv.slice(2),s=JSON.parse(fs.readFileSync(process.env.PI_GH_TEST_STATE,'utf8'));const input=fs.readFileSync(0,'utf8'),body=input?JSON.parse(input):{};const method=args[args.indexOf('--method')+1],endpoint=args.find(x=>x.startsWith('repos/'))||'graphql';fs.appendFileSync(process.env.PI_GH_TEST_LOG,JSON.stringify({args,method,endpoint,body})+'\\n');
+const fs=require('node:fs');const args=process.argv.slice(2),s=JSON.parse(fs.readFileSync(process.env.PI_GH_TEST_STATE,'utf8'));const input=fs.readFileSync(0,'utf8'),body=input?JSON.parse(input):{};const method=args[args.indexOf('--method')+1],endpoint=args.find(x=>/^(repos\\/|users\\/|orgs\\/|user($|\\/|\\?))/.test(x))||'graphql';fs.appendFileSync(process.env.PI_GH_TEST_LOG,JSON.stringify({args,method,endpoint,body})+'\\n');
 function save(){fs.writeFileSync(process.env.PI_GH_TEST_STATE,JSON.stringify(s));}function out(v){console.log(JSON.stringify(v));}
 if(s.mode==='error'){process.exit(1);}
 const item={id:'PVTI_demo',content:{__typename:'Issue',id:'I_10',number:10,repository:{nameWithOwner:s.mode==='foreign'?'other/repo':'example/demo'}},fieldValues:{nodes:[]}};
@@ -17,6 +17,12 @@ if(endpoint==='graphql'){
  if(body.query.includes('mutation')){if(body.query.includes('addProjectV2ItemById')){s.items=[item];save();return out({data:{addProjectV2ItemById:{item:{id:item.id}}}});}s.items=[{...item,fieldValues:{nodes:[{field:{id:body.variables.fieldId},text:body.variables.value.text,number:body.variables.value.number,date:body.variables.value.date,optionId:body.variables.value.singleSelectOptionId}]}}];save();return out({data:{updateProjectV2ItemFieldValue:{projectV2Item:{id:item.id}}}});}
  return out({data:{node:{__typename:'ProjectV2',id:'PVT_demo',title:'Demo',fields,items:{nodes:s.items,pageInfo:{hasNextPage:s.mode==='pages',endCursor:'next'}}}}});
 }
+const viewer=s.viewer||'example',page=list=>{const q=new URLSearchParams(endpoint.split('?')[1]||''),n=Number(q.get('page')||1),size=Number(q.get('per_page')||30);return list.slice((n-1)*size,n*size);};
+if(endpoint==='user')return out({login:viewer,id:1});
+if(endpoint.startsWith('users/')){const login=endpoint.slice(6);return out((s.owners||{})[login]||{login,type:'User'});}
+const owned=endpoint.match(/^(?:user\\/repos|orgs\\/([^/?]+)\\/repos)/);
+if(owned){const owner=owned[1]||viewer;if(method==='GET')return out(page((s.repos||[]).filter(r=>r.owner.login.toLowerCase()===owner.toLowerCase())));
+ if(s.mode==='write-error')process.exit(1);s.repos=s.repos||[];const r={id:900+s.repos.length,name:body.name,full_name:owner+'/'+body.name,private:s.mode==='create-public'?false:body.private,owner:{login:owner},html_url:'https://github.com/'+owner+'/'+body.name};s.repos.push(r);save();return out(r);}
 if(endpoint.includes('/labels')){const q=new URLSearchParams(endpoint.split('?')[1]||''),page=Number(q.get('page')||1),size=Number(q.get('per_page')||30);return out((s.labels||[]).slice((page-1)*size,page*size));}
 const match=endpoint.match(/issues\\/(\\d+)/),number=match?Number(match[1]):undefined;
 if(!match){return out(Object.values(s.issues));}

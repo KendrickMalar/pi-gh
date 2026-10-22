@@ -2,8 +2,8 @@ import {isAbsolute} from 'node:path';
 import {fail,keys,record,parseJson} from './core/data.js';
 import {validateRepo,validateLabelName,validateLabelNames,labelKey} from './core/labels-input.js';
 import type {CapturedInput} from './core/types.js';
-export const githubReads=['gh_issue_get','gh_issue_list','gh_subissues_list','gh_dependencies_list','gh_project_get','gh_project_items','gh_labels_list'] as const;
-export const githubWrites=['gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update','gh_project_create','gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current'] as const;
+export const githubReads=['gh_viewer_get','gh_issue_get','gh_issue_list','gh_subissues_list','gh_dependencies_list','gh_project_get','gh_project_items','gh_labels_list'] as const;
+export const githubWrites=['gh_issue_edit','gh_issue_close','gh_subissue_add','gh_dependency_add','gh_project_add_issue','gh_project_field_update','gh_project_create','gh_issue_edit_if_current','gh_issue_labels_if_current','gh_issue_close_if_current','gh_repo_create'] as const;
 export type GithubOperation=typeof githubReads[number]|typeof githubWrites[number];
 export type GithubArgs={repo?:string;issue?:number;state?:'open'|'closed'|'all';labels?:string[];projectId?:string;changePath?:string;bodyPath?:string};
 export type FieldValue={text?:string;number?:number;date?:string;singleSelectOptionId?:string};
@@ -13,6 +13,7 @@ export function nodeId(value:unknown,prefix:string):asserts value is string{if(t
 export function validateGithubArgs(name:GithubOperation,args:unknown):asserts args is GithubArgs{
  if(!record(args))fail('ARGUMENT','','Expected an argument object.');
  if((githubWrites as readonly string[]).includes(name)){keys(args,['changePath'],'arguments');if(typeof args.changePath!=='string'||!args.changePath.trim())fail('ARGUMENT','','Expected changePath.');return;}
+ if(name==='gh_viewer_get'){keys(args,[],'arguments');return;}
  if(name.startsWith('gh_project_')){keys(args,['projectId'],'arguments');nodeId(args.projectId,'PVT_');return;}
  if(name==='gh_labels_list'){keys(args,['repo'],'arguments');validateRepo(args.repo);return;}
  keys(args,name==='gh_issue_list'?['repo','state','labels']:name==='gh_issue_get'?['repo','issue','bodyPath']:['repo','issue'],'arguments');validateRepo(args.repo);
@@ -36,13 +37,14 @@ const changes:Record<string,{name:GithubOperation;keys:string[]}>= {
  'project-create':{name:'gh_project_create',keys:['title']},
  'issue-edit-if-current':{name:'gh_issue_edit_if_current',keys:['issue','body','expectedBodySha256']},
  'issue-labels-if-current':{name:'gh_issue_labels_if_current',keys:['issue','add','remove','expectedLabelsSha256']},
- 'issue-close-if-current':{name:'gh_issue_close_if_current',keys:['issue','reason','expectedBodySha256']}
+ 'issue-close-if-current':{name:'gh_issue_close_if_current',keys:['issue','reason','expectedBodySha256']},
+ 'repo-create':{name:'gh_repo_create',keys:[]}
 };
 export function validateChange(name:GithubOperation,input:CapturedInput):Change{
  const raw=parseJson(input.bytes);if(!record(raw)||raw.version!==1||typeof raw.operation!=='string')fail('ARGUMENT','','Expected version 1 change.');
  const definition=changes[raw.operation];if(!definition||definition.name!==name)fail('ARGUMENT','','Change does not match the tool operation.');
  keys(raw,['version','repo','operation',...definition.keys],'change');validateRepo(raw.repo);
- if(raw.operation!=='project-field-update'&&raw.operation!=='project-create')positive(raw.issue);
+ if(raw.operation!=='project-field-update'&&raw.operation!=='project-create'&&raw.operation!=='repo-create')positive(raw.issue);
  if(raw.operation==='project-create'&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title!==raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','title','Invalid project title.');
  if(raw.operation==='issue-edit'){
   if(raw.title===undefined&&raw.body===undefined)fail('ARGUMENT','','No edit requested.');
