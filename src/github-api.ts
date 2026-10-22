@@ -16,6 +16,7 @@ export class GithubApi{
  private args(endpoint:string,method:string){return ['api','--hostname','github.com','--method',method,'-H','Accept: application/vnd.github+json','-H','X-GitHub-Api-Version: 2026-03-10',endpoint];}
  private decode(stdout:string):unknown{this.bytes+=Buffer.byteLength(stdout);if(this.bytes>1048576)fail('GITHUB_LIMIT','','Combined response limit exceeded.');return parseJson(Buffer.from(stdout));}
  async rest(endpoint:string):Promise<unknown>{const r=await runGh(this.args(endpoint,'GET'),'',this.options);if(r.status!=='ok')fail('GITHUB_READ','','GitHub read failed.');return this.decode(r.stdout);}
+ async viewer():Promise<string>{const v=object(await this.rest('user'));if(typeof v.login!=='string'||!v.login)fail('GITHUB_RESPONSE','','Expected the authenticated login.');return v.login;}
  async restList(endpoint:string):Promise<unknown[]>{
   const all:unknown[]=[];for(let page=1;page<=100;page++){const items=array(await this.rest(endpoint+(endpoint.includes('?')?'&':'?')+'per_page=100&page='+page));all.push(...items);if(items.length<100)return all;}fail('GITHUB_LIMIT','','Pagination limit exceeded.');
  }

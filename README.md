@@ -5,8 +5,8 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.10.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.10.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.11.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.11.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
@@ -25,6 +25,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_labels_preview | changePath | 対象・before/after・影響対象・digest |
 | gh_labels_apply | changePath | 検証・許可・再確認を経てラベル変更。`label-create-many`（`labels`に1〜100件の`{name,color,description?}`）は、存在しないラベルだけをまとめて作る。一覧の取得は前後1回ずつで、作成は順に送り、結果が不確かな時点で止めて`unknown`を返す。許可名は`gh_label_create` |
 | gh_issue_form | template/templatePath | Issue Form YAMLを返す。ファイル上書きなし |
+| gh_viewer_get | `{}` | 認証中の GitHub アカウントの `login` だけを返す |
 | gh_issue_get | repo、issue、bodyPath（任意） | 指定Issueを取得。PRは拒否。data に生の本文（null は空文字）の `bodySha256`（UTF-8・改行はそのまま）と `bodyBytes` を足す。`bodyPath`（絶対パス）を渡すと生の本文をそのファイルへ 0600 で書く（シンボリックリンクと無いディレクトリは拒否）。`*_if_current` の `expectedBodySha256` や本文への追記に、結果の文字を写さずに使う |
 | gh_issue_list | repo、任意state・labels | Issue一覧。stateはopen/closed/all（既定all）。labels（1〜10件、AND）でGitHub側で絞り込み。PRは除外 |
 | gh_labels_list | repo | リポジトリの全ラベル（name・小文字color・description）。全ページ取得、名前順。大小文字違いの重複や不正応答は拒否 |
@@ -42,6 +43,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_issue_edit_if_current | changePath | 確認した本文（expectedBodySha256）のときだけ本文を置き換え |
 | gh_issue_labels_if_current | changePath | 確認したラベル集合（expectedLabelsSha256）のときだけラベルを追加・除去 |
 | gh_issue_close_if_current | changePath | 確認した本文（expectedBodySha256）のときだけclose |
+| gh_repo_create | changePath | `{"version":1,"repo":"OWNER/NAME","operation":"repo-create"}`。非公開で空の repo を作る（公開設定・初期化のキーは無い）。既にあれば noop。持ち主が User なら認証中の本人に限る（Organization は可）。許可ファイルの grant か agentApproval が要る（0.8.0 以前が知らない操作なので、許可ファイルの operations には書かず agentApproval で通すのが安全） |
 
 パスは実行時cwd基準。標準templateはtask（既定）/parent。独自templatePathと同時指定できません。Epic/Feature/Task専用テンプレートは利用側で用意します。examplesのexample/demoは架空です。
 

@@ -11,7 +11,7 @@ import {labelKey,validateLabelName} from './core/labels-input.js';
 import {githubReads,githubWrites,validateGithubArgs,validateChange,type GithubOperation,type GithubArgs,type Change} from './operation-input.js';
 import type {OperationContext,OperationResult} from './service-types.js';
 
-type Snapshot={owner?:JsonObject;issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;repoLabels?:string[];desiredLabels?:string[];noop:boolean};
+type Snapshot={owner?:JsonObject;repository?:JsonObject;issue?:JsonObject;related?:JsonObject;relations?:unknown[];project?:JsonObject;item?:JsonObject;field?:JsonObject;repoLabels?:string[];desiredLabels?:string[];noop:boolean};
 const sha256=(text:string)=>createHash('sha256').update(text,'utf8').digest('hex');
 /** Label-set digest shared with callers: sha256 of JSON.stringify(names sorted by UTF-16 code units). */
 export function labelsSha256(names:readonly string[]):string{return sha256(JSON.stringify([...names].sort()));}
@@ -46,6 +46,16 @@ const bodyOf=(issue:JsonObject)=>typeof issue.body==='string'?issue.body:'';
 async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  const s:Snapshot={noop:false};
  if(c.issue!==undefined)s.issue=await api.issue(c.repo,c.issue);
+ if(c.operation==='repo-create'){
+  // Repositories are always created private and empty. A user owner must be the authenticated account; an existing repository is a noop.
+  const login=c.repo.split('/')[0]!,owner=object(await api.rest('users/'+login)),type=owner.type,viewer=await api.viewer();
+  if(type!=='User'&&type!=='Organization')fail('GITHUB_RESPONSE','repo','Unexpected repository owner.');
+  if(type==='User'&&login.toLowerCase()!==viewer.toLowerCase())fail('REPO_OWNER','repo','Repositories can be created only for the authenticated user ('+viewer+') or an organization.');
+  s.owner={login,type};
+  const hit=(await api.restList(type==='User'?'user/repos?affiliation=owner':'orgs/'+login+'/repos?type=all')).map(object).find(r=>typeof r.full_name==='string'&&r.full_name.toLowerCase()===c.repo.toLowerCase());
+  if(hit){s.repository={full_name:hit.full_name,private:hit.private,html_url:hit.html_url};s.noop=!verify||hit.private===true;}
+  return s;
+ }
  if(c.operation==='project-create'){
   // Titles are not unique on GitHub; this tool treats any same-title project of the owner (closed too, case-insensitive) as a duplicate.
   const o=await api.ownerProjects(c.repo),key=c.title!.trim().toLowerCase();
@@ -100,6 +110,7 @@ async function apply(api:GithubApi,c:Change,before:Snapshot){
   case 'subissue-add':return api.mutateRest(endpoint+'/sub_issues','POST',{sub_issue_id:before.related!.id});
   case 'dependency-add':return api.mutateRest(endpoint+'/dependencies/blocked_by','POST',{issue_id:before.related!.id});
   case 'project-add-issue':return api.mutateGraphql(addProjectIssueMutation,{projectId:c.projectId,contentId:before.issue!.node_id});
+  case 'repo-create':return api.mutateRest(before.owner!.type==='User'?'user/repos':'orgs/'+before.owner!.login+'/repos','POST',{name:c.repo.split('/')[1]!,private:true});
   case 'project-create':return api.mutateGraphql(createProjectMutation,{ownerId:before.owner!.id,repositoryId:before.owner!.repositoryId,title:c.title});
   case 'project-field-update':return api.mutateGraphql(updateProjectFieldMutation,{projectId:c.projectId,itemId:c.itemId,fieldId:c.fieldId,value:c.value});
   default:fail('ARGUMENT','','Unknown change.');
@@ -115,7 +126,8 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   const api=new GithubApi({signal:ctx.signal,beforeStart:()=>active(ctx),beforeStartAsync:async()=>!machineAuthority||!!ctx.permissions&&await ctx.permissions.isCurrent()});
   if(!write){
    let data:unknown;
-   if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
+   if(name==='gh_viewer_get')data={login:await api.viewer()};
+   else if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
    else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
    else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
    else if(name==='gh_issue_get'){
@@ -142,6 +154,6 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   if(result.status!=='ok')return safeResult({status:result.status,message:result.status==='unknown'?'Change outcome is uncertain; inspect GitHub before retrying.':'Change did not start.'});
   const verified=await snapshot(api,change,true);requireActive(ctx);
   if(!verified.noop)return safeResult({status:'unknown',message:'Write returned, but the requested state could not be verified. Inspect GitHub before retrying.'});
-  return safeResult({status:'applied',data:{repo:change.repo,operation:name,...(change.projectId?{projectId:change.projectId}:{}),...(verified.issue?{issue:verified.issue}:{}),...(verified.item?{itemId:verified.item.id}:{}),...(change.operation==='project-create'&&verified.project?{project:verified.project}:{})}});
+  return safeResult({status:'applied',data:{repo:change.repo,operation:name,...(change.projectId?{projectId:change.projectId}:{}),...(verified.issue?{issue:verified.issue}:{}),...(verified.item?{itemId:verified.item.id}:{}),...(change.operation==='project-create'&&verified.project?{project:verified.project}:{}),...(change.operation==='repo-create'&&verified.repository?{repository:verified.repository}:{})}});
  }catch(error){return mutationStarted?safeResult({status:'unknown',message:'Change or its verification was interrupted; inspect GitHub before retrying.'}):errorResult(error);}
 }
