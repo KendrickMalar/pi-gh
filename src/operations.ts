@@ -48,12 +48,11 @@ async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  if(c.issue!==undefined)s.issue=await api.issue(c.repo,c.issue);
  if(c.operation==='repo-create'){
   // Repositories are always created private and empty. A user owner must be the authenticated account; an existing repository is a noop.
-  const login=c.repo.split('/')[0]!,owner=object(await api.rest('users/'+login)),type=owner.type,viewer=await api.viewer();
-  if(type!=='User'&&type!=='Organization')fail('GITHUB_RESPONSE','repo','Unexpected repository owner.');
-  if(type==='User'&&login.toLowerCase()!==viewer.toLowerCase())fail('REPO_OWNER','repo','Repositories can be created only for the authenticated user ('+viewer+') or an organization.');
-  s.owner={login,type};
-  const hit=(await api.restList(type==='User'?'user/repos?affiliation=owner':'orgs/'+login+'/repos?type=all')).map(object).find(r=>typeof r.full_name==='string'&&r.full_name.toLowerCase()===c.repo.toLowerCase());
-  if(hit){s.repository={full_name:hit.full_name,private:hit.private,html_url:hit.html_url};s.noop=!verify||hit.private===true;}
+  const login=c.repo.split('/')[0]!,owner=await api.ownerRepos(login),viewer=await api.viewer();
+  if(owner.type==='User'&&login.toLowerCase()!==viewer.toLowerCase())fail('REPO_OWNER','repo','Repositories can be created only for the authenticated user ('+viewer+') or an organization.');
+  s.owner={login:owner.login,type:owner.type};
+  const hit=owner.repos.find(r=>typeof r.nameWithOwner==='string'&&r.nameWithOwner.toLowerCase()===c.repo.toLowerCase());
+  if(hit){s.repository={full_name:hit.nameWithOwner,private:hit.isPrivate,html_url:hit.url};s.noop=!verify||hit.isPrivate===true;}
   return s;
  }
  if(c.operation==='project-create'){

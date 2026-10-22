@@ -9,6 +9,7 @@ export const addProjectIssueMutation=`mutation($projectId:ID!,$contentId:ID!){ad
 export const updateProjectFieldMutation=`mutation($projectId:ID!,$itemId:ID!,$fieldId:ID!,$value:ProjectV2FieldValue!){updateProjectV2ItemFieldValue(input:{projectId:$projectId,itemId:$itemId,fieldId:$fieldId,value:$value}){projectV2Item{id}}}`;
 export const projectOwnerQuery=`query($owner:String!,$name:String!,$cursor:String){repository(owner:$owner,name:$name){id nameWithOwner owner{__typename id login ... on User{projectsV2(first:100,after:$cursor){nodes{id number title url closed} pageInfo{hasNextPage endCursor}}} ... on Organization{projectsV2(first:100,after:$cursor){nodes{id number title url closed} pageInfo{hasNextPage endCursor}}}}}}`;
 export const projectReposQuery=`query($projectId:ID!,$cursor:String){node(id:$projectId){__typename ... on ProjectV2{id repositories(first:100,after:$cursor){nodes{nameWithOwner} pageInfo{hasNextPage endCursor}}}}}`;
+export const ownerReposQuery=`query($owner:String!,$cursor:String){repositoryOwner(login:$owner){__typename login repositories(first:100,after:$cursor,ownerAffiliations:[OWNER]){nodes{nameWithOwner isPrivate url} pageInfo{hasNextPage endCursor}}}}`;
 export const createProjectMutation=`mutation($ownerId:ID!,$repositoryId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,repositoryId:$repositoryId,title:$title}){projectV2{id number url title}}}`;
 export class GithubApi{
  private bytes=0;
@@ -56,6 +57,12 @@ export class GithubApi{
   const v=object(r.first.repository),o=object(v.owner);
   if(typeof v.id!=='string'||typeof o.id!=='string'||typeof o.login!=='string'||!['User','Organization'].includes(o.__typename as string))fail('GITHUB_RESPONSE','','Unexpected repository owner.');
   return {repositoryId:v.id,owner:{id:o.id,login:o.login},projects:r.nodes.map(object)};
+ }
+ /** The owner's type and the names of its own repositories (only name, privacy and URL, so large owners stay within the response limit). */
+ async ownerRepos(login:string):Promise<{type:'User'|'Organization';login:string;repos:JsonObject[]}>{
+  const r=await this.paged(ownerReposQuery,{owner:login},data=>{const o=object(data.repositoryOwner);if(typeof o.login!=='string'||o.login.toLowerCase()!==login.toLowerCase())fail('GITHUB_IDENTITY','repo','Expected the exact repository owner.');return object(o.repositories);});
+  const o=object(r.first.repositoryOwner);if(o.__typename!=='User'&&o.__typename!=='Organization')fail('GITHUB_RESPONSE','repo','Unexpected repository owner.');
+  return {type:o.__typename,login:o.login as string,repos:r.nodes.map(object)};
  }
  async projectRepos(projectId:string):Promise<string[]>{
   const r=await this.paged(projectReposQuery,{projectId},data=>{const p=object(data.node);if(p.__typename!=='ProjectV2'||p.id!==projectId)fail('GITHUB_IDENTITY','','Expected the exact Projects V2 node.');return object(p.repositories);});
