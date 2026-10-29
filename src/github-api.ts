@@ -11,6 +11,7 @@ export const projectOwnerQuery=`query($owner:String!,$name:String!,$cursor:Strin
 export const projectReposQuery=`query($projectId:ID!,$cursor:String){node(id:$projectId){__typename ... on ProjectV2{id repositories(first:100,after:$cursor){nodes{nameWithOwner} pageInfo{hasNextPage endCursor}}}}}`;
 export const ownerReposQuery=`query($owner:String!,$cursor:String){repositoryOwner(login:$owner){__typename login repositories(first:100,after:$cursor,ownerAffiliations:[OWNER]){nodes{nameWithOwner isPrivate url} pageInfo{hasNextPage endCursor}}}}`;
 export const createProjectMutation=`mutation($ownerId:ID!,$repositoryId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,repositoryId:$repositoryId,title:$title}){projectV2{id number url title}}}`;
+export const closeProjectMutation=`mutation($projectId:ID!){updateProjectV2(input:{projectId:$projectId,closed:true}){projectV2{id closed}}}`;
 export class GithubApi{
  private bytes=0;
  constructor(private options:GhOptions){}

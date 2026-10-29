@@ -5,8 +5,8 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.11.1`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.11.1 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.12.0`。
+- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.12.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
@@ -40,6 +40,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_project_add_issue | changePath | 指定IssueをProjectへ登録 |
 | gh_project_field_update | changePath | text/number/date/single-select field値更新 |
 | gh_project_create | changePath | repoのオーナー配下にProjectを作成し、そのrepoへ紐付け |
+| gh_project_close | changePath | repoに紐付いたProjectを閉じる（既に閉じていればnoop） |
 | gh_issue_edit_if_current | changePath | 確認した本文（expectedBodySha256）のときだけ本文を置き換え |
 | gh_issue_labels_if_current | changePath | 確認したラベル集合（expectedLabelsSha256）のときだけラベルを追加・除去 |
 | gh_issue_close_if_current | changePath | 確認した本文（expectedBodySha256）のときだけclose |
@@ -83,6 +84,7 @@ return { ...nested.result, isError: nested.isError };
 | project-add-issue | issue、projectId | — |
 | project-field-update | projectId、itemId、fieldId、value | — |
 | project-create | title（1〜256文字、前後の空白・制御文字なし） | — |
+| project-close | projectId | — |
 | issue-edit-if-current | issue、body、expectedBodySha256 | — |
 | issue-labels-if-current | issue、add/removeの少なくとも一方、expectedLabelsSha256 | — |
 | issue-close-if-current | issue、expectedBodySha256 | reason: completed（既定）/not_planned |
