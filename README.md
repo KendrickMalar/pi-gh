@@ -35,7 +35,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 | gh_subissue_add | changePath | native親子関係の追加 |
 | gh_dependencies_list | repo、issue | 指定Issueのblocked_by一覧 |
 | gh_dependency_add | changePath | 指定Issueをブロックする先行Issueを追加 |
-| gh_project_get | projectId | Projects V2のtitle・field一覧 |
+| gh_project_get | projectId | Projects V2のtitle・closed・field一覧と、紐付いたrepo（repositories、nameWithOwnerの配列、全ページ） |
 | gh_project_items | projectId | Projectの項目・field値一覧 |
 | gh_project_add_issue | changePath | 指定IssueをProjectへ登録 |
 | gh_project_field_update | changePath | text/number/date/single-select field値更新 |

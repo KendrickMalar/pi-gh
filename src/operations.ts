@@ -133,7 +133,9 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   if(!write){
    let data:unknown;
    if(name==='gh_viewer_get')data={login:await api.viewer()};
-   else if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
+   // gh_project_get also lists the linked repositories (nameWithOwner, every page), read with the same query the project-close check uses.
+   else if(name==='gh_project_get')data={...await api.project(args.projectId!,'fields'),repositories:await api.projectRepos(args.projectId!)};
+   else if(name==='gh_project_items')data=await api.project(args.projectId!,'items');
    else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
    else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
    else if(name==='gh_issue_get'){
