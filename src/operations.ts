@@ -6,7 +6,7 @@ import {maskDecodedSecrets} from './core/secrets.js';
 import {fail} from './core/data.js';
 import {safeResult,errorResult,rejected} from './result.js';
 import {authorize,recheckAuthority} from './service.js';
-import {GithubApi,object,array,addProjectIssueMutation,updateProjectFieldMutation,createProjectMutation,type JsonObject} from './github-api.js';
+import {GithubApi,object,array,addProjectIssueMutation,updateProjectFieldMutation,createProjectMutation,closeProjectMutation,type JsonObject} from './github-api.js';
 import {labelKey,validateLabelName} from './core/labels-input.js';
 import {githubReads,githubWrites,validateGithubArgs,validateChange,type GithubOperation,type GithubArgs,type Change} from './operation-input.js';
 import type {OperationContext,OperationResult} from './service-types.js';
@@ -65,6 +65,12 @@ async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
   if(hits.length===1&&hit&&(await api.projectRepos(hit.id as string)).some(r=>r.toLowerCase()===c.repo.toLowerCase())){s.project={id:hit.id,number:hit.number,url:hit.url,title:hit.title};s.noop=true;}
   return s;
  }
+ if(c.operation==='project-close'){
+  // Closing is one-way here: a closed Project is a noop, and only a Project linked to the repository may be closed.
+  const p=await api.project(c.projectId!,'fields');s.project={id:p.id,title:p.title,closed:p.closed};
+  if(!verify&&!(await api.projectRepos(c.projectId!)).some(r=>r.toLowerCase()===c.repo.toLowerCase()))fail('GITHUB_IDENTITY','','Project is not linked to the specified repository.');
+  s.noop=p.closed===true;return s;
+ }
  if(c.operation==='issue-edit'){s.noop=(c.title===undefined||c.title===s.issue!.title)&&(c.body===undefined||c.body===bodyOf(s.issue!));return s;}
  if(c.operation==='issue-edit-if-current'){s.noop=c.body===bodyOf(s.issue!);return s;}
  if(c.operation==='issue-close-if-current'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
@@ -111,6 +117,7 @@ async function apply(api:GithubApi,c:Change,before:Snapshot){
   case 'project-add-issue':return api.mutateGraphql(addProjectIssueMutation,{projectId:c.projectId,contentId:before.issue!.node_id});
   case 'repo-create':return api.mutateRest(before.owner!.type==='User'?'user/repos':'orgs/'+before.owner!.login+'/repos','POST',{name:c.repo.split('/')[1]!,private:true});
   case 'project-create':return api.mutateGraphql(createProjectMutation,{ownerId:before.owner!.id,repositoryId:before.owner!.repositoryId,title:c.title});
+  case 'project-close':return api.mutateGraphql(closeProjectMutation,{projectId:c.projectId});
   case 'project-field-update':return api.mutateGraphql(updateProjectFieldMutation,{projectId:c.projectId,itemId:c.itemId,fieldId:c.fieldId,value:c.value});
   default:fail('ARGUMENT','','Unknown change.');
  }
@@ -126,7 +133,9 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
   if(!write){
    let data:unknown;
    if(name==='gh_viewer_get')data={login:await api.viewer()};
-   else if(name==='gh_project_get'||name==='gh_project_items')data=await api.project(args.projectId!,name==='gh_project_get'?'fields':'items');
+   // gh_project_get also lists the linked repositories (nameWithOwner, every page), read with the same query the project-close check uses.
+   else if(name==='gh_project_get')data={...await api.project(args.projectId!,'fields'),repositories:await api.projectRepos(args.projectId!)};
+   else if(name==='gh_project_items')data=await api.project(args.projectId!,'items');
    else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
    else if(name==='gh_issue_list')data=(await api.restList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
    else if(name==='gh_issue_get'){
