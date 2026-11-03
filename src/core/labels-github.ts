@@ -1,4 +1,4 @@
-import {fail,record,nonblank,parseJson} from './data.js';
+import {fail,record,nonblank,parseGithubJson} from './data.js';
 import {runGh,type GhOptions,type GhResult} from './gh-process.js';
 import {labelKey,validateLabelName,validateRepo,type LabelChange} from './labels-input.js';
 export type Label={id:number;node_id:string;name:string;color:string;description:string};
@@ -23,15 +23,13 @@ export class GhClient{
  async read(suffix:string):Promise<unknown>{
  const r=await this.request('GET',suffix);
  if(r.status!=='ok')fail('GITHUB_READ','','Cannot confirm GitHub state. No changes performed.');
- try{return parseJson(Buffer.from(r.stdout))}catch{fail('GITHUB_RESPONSE','','Invalid GitHub response.')}
+ try{return parseGithubJson(Buffer.from(r.stdout))}catch{fail('GITHUB_RESPONSE','','Invalid GitHub response.')}
  }
  async list(suffix:string):Promise<unknown[]>{
- const result:unknown[]=[];let bytes=0;
+ const result:unknown[]=[];
  for(let page=1;page<=100;page++){
  const value=await this.read(suffix+(suffix.includes('?')?'&':'?')+'per_page=100&page='+page);
  if(!Array.isArray(value)||value.length>100)fail('GITHUB_RESPONSE','','Expected a paginated array.');
- bytes+=Buffer.byteLength(JSON.stringify(value));
- if(bytes>1048576)fail('GITHUB_LIMIT','','Complete listing exceeds 1 MiB. Narrow the repository or inspect manually.');
  result.push(...value);if(value.length<100)return result;
  }
  fail('GITHUB_LIMIT','','Incomplete listing: more than 100 pages.');

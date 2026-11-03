@@ -141,7 +141,7 @@ project-createはrepoのオーナー（UserまたはOrganization）配下に作�
 
 秘密検出はヒューリスティックです。decoded文字列・object key・remote metadataもマスクし、秘密候補があれば変更を拒否します。秘密漏洩ゼロ、直接gh実行の防止、チェックと実write間の全競合防止は保証しません。
 
-ghはshellなし・固定argv/stdin・github.com固定。RESTは明示methodとAPI version 2026-03-10、GraphQLは固定queryとJSON variablesを使い、任意endpoint/query入力はありません。各プロセス60秒、各stdio1MiB、cleanup猶予100ms。POSIX所有process groupを停止しますが、Windowsの子孫全体停止は保証しません。新規read操作は最大100ページ・合計1MiB、反復cursor・field値の切り捨てを拒否します。
+ghはshellなし・固定argv/stdin・github.com固定。RESTは明示methodとAPI version 2026-03-10、GraphQLは固定queryとJSON variablesを使い、任意endpoint/query入力はありません。各プロセス60秒、cleanup猶予100ms。応答（stdout・stderr）の大きさに上限はありません。POSIX所有process groupを停止しますが、Windowsの子孫全体停止は保証しません。新規read操作は最大100ページ（合計の大きさの上限はなし）、反復cursor・field値の切り捨てを拒否します。
 
 結果はread/validated/preview/generated/created/applied/noop/rejected/not-started/unknown。`unknown`は変更済みの可能性があります。GitHubを確認するまで再実行しないでください。自動再試行・自動取消はありません。新変更操作は要求した状態を事後確認し、不一致・確認失敗はunknownにします。
 

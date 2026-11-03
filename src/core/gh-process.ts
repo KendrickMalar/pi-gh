@@ -2,8 +2,9 @@ import {spawn} from 'node:child_process';
 export type GhOptions={ghExecutable?:string;timeoutMs?:number;maxOutputBytes?:number;env?:NodeJS.ProcessEnv;signal?:AbortSignal;beforeStart?:()=>boolean;beforeStartAsync?:()=>Promise<boolean>};
 export type GhResult={status:'ok'|'not-started'|'unknown';stdout:string};
 export async function runGh(args:string[],body:string,options:GhOptions={}):Promise<GhResult>{
- const timeout=options.timeoutMs??60000,max=options.maxOutputBytes??1048576;
- if(!Number.isSafeInteger(timeout)||timeout<1||timeout>60000||!Number.isSafeInteger(max)||max<1||max>1048576||Buffer.byteLength(body)>1048576)
+ // Output has no size limit unless the caller sets maxOutputBytes; the 60 s timeout still bounds every process.
+ const timeout=options.timeoutMs??60000,max=options.maxOutputBytes??Infinity;
+ if(!Number.isSafeInteger(timeout)||timeout<1||timeout>60000||(max!==Infinity&&(!Number.isSafeInteger(max)||max<1))||Buffer.byteLength(body)>1048576)
  return Promise.resolve({status:'not-started',stdout:''});
  try{if(options.beforeStartAsync&&!await options.beforeStartAsync())return {status:'not-started',stdout:''};}catch{return {status:'not-started',stdout:''};}
  return new Promise(resolve=>{
