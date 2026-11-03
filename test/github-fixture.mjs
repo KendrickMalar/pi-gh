@@ -27,7 +27,7 @@ if(owned){const owner=owned[1]||viewer;if(method==='GET')return out(page((s.repo
  if(s.mode==='write-error')process.exit(1);s.repos=s.repos||[];const r={id:900+s.repos.length,name:body.name,full_name:owner+'/'+body.name,private:s.mode==='create-public'?false:body.private,owner:{login:owner},html_url:'https://github.com/'+owner+'/'+body.name};s.repos.push(r);save();return out(r);}
 if(endpoint.includes('/labels')){const q=new URLSearchParams(endpoint.split('?')[1]||''),page=Number(q.get('page')||1),size=Number(q.get('per_page')||30);return out((s.labels||[]).slice((page-1)*size,page*size));}
 const match=endpoint.match(/issues\\/(\\d+)/),number=match?Number(match[1]):undefined;
-if(!match){return out(Object.values(s.issues));}
+if(!match){return out(page(Object.values(s.issues)));}
 if(method==='GET'){
  if(endpoint.includes('sub_issues'))return out(s.subissues.map(n=>s.issues[n]));
  if(endpoint.includes('dependencies/blocked_by'))return out(s.dependencies.map(n=>s.issues[n]));
