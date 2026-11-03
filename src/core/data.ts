@@ -72,8 +72,8 @@ export async function capture(file: string, allowedRoot?: string): Promise<Captu
         await handle?.close();
     }
 }
-export function text(bytes: Buffer): string {
-    if (bytes.length > MAX_BYTES)
+export function text(bytes: Buffer, limit: number = MAX_BYTES): string {
+    if (bytes.length > limit)
         fail('INPUT_LIMIT', '', 'Input exceeds 1 MiB.');
     try {
         return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -82,9 +82,9 @@ export function text(bytes: Buffer): string {
         fail('ENCODING', '', 'Input must be UTF-8.');
     }
 }
-export function parseYaml(bytes: Buffer): ParsedData {
+export function parseYaml(bytes: Buffer, limit: number = MAX_BYTES): ParsedData {
     try {
-        const docs = parseAllDocuments(text(bytes), { uniqueKeys: true, prettyErrors: false, strict: true });
+        const docs = parseAllDocuments(text(bytes, limit), { uniqueKeys: true, prettyErrors: false, strict: true });
         if (docs.length !== 1)
             fail('YAML_DOCUMENT', '', 'Exactly one YAML document is required.');
         const doc = docs[0]!;
@@ -119,11 +119,13 @@ export function parseYaml(bytes: Buffer): ParsedData {
         fail('YAML_INVALID', '', 'Invalid YAML.');
     }
 }
-export function parseJson(bytes: Buffer): ParsedData {
+/** GitHub responses have no size limit; local input files keep MAX_BYTES. */
+export function parseGithubJson(bytes: Buffer): ParsedData { return parseJson(bytes, Infinity); }
+export function parseJson(bytes: Buffer, limit: number = MAX_BYTES): ParsedData {
     try {
-        const raw = text(bytes);
+        const raw = text(bytes, limit);
         const value: unknown = JSON.parse(raw);
-        parseYaml(bytes); // JSON syntax is a YAML subset; detect decoded duplicate keys.
+        parseYaml(bytes, limit); // JSON syntax is a YAML subset; detect decoded duplicate keys.
         return value as ParsedData;
     }
     catch (e) {

@@ -3,7 +3,7 @@ import {GhClient,repositoryLabels,requireLabels,parseIssue,readIssue,repositoryI
 import {sha} from './labels-approval.js';
 import {renderIssue} from './render.js';
 import {maskDecodedSecrets} from './secrets.js';
-import {record,parseJson} from './data.js';
+import {record,parseGithubJson} from './data.js';
 import type {Preview,ValidatedIssue,SubmitOutcome} from './types.js';
 import type {GhOptions} from './gh-process.js';
 export type IssueLabelPreview=Preview&{labelState?:Label[];repository?:Repository};
@@ -30,7 +30,7 @@ export async function submitLabelledIssue(issue:ValidatedIssue,digest:string,opt
  const uncertain:SubmitOutcome={status:'unknown',message:'Issue creation outcome is uncertain. Check GitHub manually before retrying.'};
  if(result.status!=='ok')return uncertain;
  try{
- const raw=parseJson(Buffer.from(result.stdout));const created=parseIssue(raw,fixed.repo);
+ const raw=parseGithubJson(Buffer.from(result.stdout));const created=parseIssue(raw,fixed.repo);
  if(!record(raw)||raw.title!==fixed.title||raw.body!==fixed.body||created.identity.kind!=='issue')return uncertain;
  const current=await readIssue(client,created.identity.number);
  const confirmed=await client.read('issues/'+created.identity.number);

@@ -1,5 +1,5 @@
 import {runGh,type GhOptions} from './core/gh-process.js';
-import {fail,parseJson,record} from './core/data.js';
+import {fail,parseGithubJson,record} from './core/data.js';
 export type JsonObject=Record<string,unknown>;
 export function object(value:unknown):JsonObject{if(!record(value))fail('GITHUB_RESPONSE','','Expected a GitHub object.');return value;}
 export function array(value:unknown):unknown[]{if(!Array.isArray(value))fail('GITHUB_RESPONSE','','Expected a GitHub array.');return value;}
@@ -13,22 +13,19 @@ export const ownerReposQuery=`query($owner:String!,$cursor:String){repositoryOwn
 export const createProjectMutation=`mutation($ownerId:ID!,$repositoryId:ID!,$title:String!){createProjectV2(input:{ownerId:$ownerId,repositoryId:$repositoryId,title:$title}){projectV2{id number url title}}}`;
 export const closeProjectMutation=`mutation($projectId:ID!){updateProjectV2(input:{projectId:$projectId,closed:true}){projectV2{id closed}}}`;
 export class GithubApi{
- private bytes=0;
  constructor(private options:GhOptions){}
  private args(endpoint:string,method:string){return ['api','--hostname','github.com','--method',method,'-H','Accept: application/vnd.github+json','-H','X-GitHub-Api-Version: 2026-03-10',endpoint];}
- private limit=1048576;
- private decode(stdout:string):unknown{this.bytes+=Buffer.byteLength(stdout);if(this.bytes>this.limit)fail('GITHUB_LIMIT','','Combined response limit exceeded.');return parseJson(Buffer.from(stdout));}
+ private decode(stdout:string):unknown{return parseGithubJson(Buffer.from(stdout));}
  private async get(endpoint:string):Promise<string|undefined>{const r=await runGh(this.args(endpoint,'GET'),'',this.options);return r.status==='ok'?r.stdout:undefined;}
  async rest(endpoint:string):Promise<unknown>{const stdout=await this.get(endpoint);if(stdout===undefined)fail('GITHUB_READ','','GitHub read failed.');return this.decode(stdout);}
  async viewer():Promise<string>{const v=object(await this.rest('user'));if(typeof v.login!=='string'||!v.login)fail('GITHUB_RESPONSE','','Expected the authenticated login.');return v.login;}
  async restList(endpoint:string):Promise<unknown[]>{
   const all:unknown[]=[];for(let page=1;page<=100;page++){const items=array(await this.rest(endpoint+(endpoint.includes('?')?'&':'?')+'per_page=100&page='+page));all.push(...items);if(items.length<100)return all;}fail('GITHUB_LIMIT','','Pagination limit exceeded.');
  }
- // Issue bodies reach 64 KiB each, so one page of them can pass the 1 MiB output limit of a single read.
+ // Issue bodies reach 64 KiB each, so a page of them is large and slow to read.
  // A page that cannot be read is retried at half the size (64 down to 1); the offset stays exact because each size divides the larger ones.
- // The whole list may use 16 MiB, so repos with many large Epics still list completely.
  async issueList(endpoint:string):Promise<unknown[]>{
-  const all:unknown[]=[];this.limit=16*1048576;let size=64;
+  const all:unknown[]=[];let size=64;
   for(let calls=0;calls<2000;calls++){
    const stdout=await this.get(endpoint+(endpoint.includes('?')?'&':'?')+'per_page='+size+'&page='+(all.length/size+1));
    if(stdout===undefined){if(size===1)fail('GITHUB_READ','','GitHub read failed.');size/=2;continue;}
@@ -73,7 +70,7 @@ export class GithubApi{
   if(typeof v.id!=='string'||typeof o.id!=='string'||typeof o.login!=='string'||!['User','Organization'].includes(o.__typename as string))fail('GITHUB_RESPONSE','','Unexpected repository owner.');
   return {repositoryId:v.id,owner:{id:o.id,login:o.login},projects:r.nodes.map(object)};
  }
- /** The owner's type and the names of its own repositories (only name, privacy and URL, so large owners stay within the response limit). */
+ /** The owner's type and the names of its own repositories (only name, privacy and URL, so the response stays small for large owners). */
  async ownerRepos(login:string):Promise<{type:'User'|'Organization';login:string;repos:JsonObject[]}>{
   const r=await this.paged(ownerReposQuery,{owner:login},data=>{const o=object(data.repositoryOwner);if(typeof o.login!=='string'||o.login.toLowerCase()!==login.toLowerCase())fail('GITHUB_IDENTITY','repo','Expected the exact repository owner.');return object(o.repositories);});
   const o=object(r.first.repositoryOwner);if(o.__typename!=='User'&&o.__typename!=='Organization')fail('GITHUB_RESPONSE','repo','Unexpected repository owner.');
