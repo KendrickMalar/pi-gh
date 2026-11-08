@@ -5,7 +5,7 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
 - 認証情報・tokenをdeterministic-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
-- npm配布は終了しました（最後のnpm版は`@papillon6814/pi-gh` 0.8.0。deprecated）。以後はローカルでビルドしたスナップショットから導入します。
+- npm配布は終了しました（最後のnpm版は`@papillon6814/pi-gh` 0.8.0。npm側のdeprecateは今後の予定で、未実施）。以後はローカルでビルドしたスナップショットから導入します。
 - スナップショット導入：`npm install --ignore-scripts && npm run build && npm pack`で作ったtarballを`~/.pi/local-packages/deterministic-gh/<commit>`へ展開し、`pi-profile packages add --profile developer ~/.pi/local-packages/deterministic-gh/<commit> --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
 - 一時的に使う場合は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/deterministic-gh`。

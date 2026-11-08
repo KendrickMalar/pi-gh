@@ -60,7 +60,7 @@ export async function loadPermissions(path:string,actor:Actor):Promise<Permissio
   if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[A-Za-z0-9_-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
   return {repo:value.repo as string,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[],agentApproval:value.agentApproval===true};
  });
- // The sidecar adds agent-approval grants without changing the permission file, which older deterministic-gh versions must keep reading.
+ // The sidecar adds agent-approval grants without changing the permission file, which older versions (pi-gh ≤0.12) must keep reading.
  const sideGrants:Grant[]=side===undefined?[]:decodeSidecar(side);
  const digestOf=(a:string,b:string|undefined)=>createHash('sha256').update(a).update('\0').update(b??'').digest('hex');
  const digest=digestOf(captured,side);
