@@ -3,7 +3,7 @@ import {mkdtemp,realpath,writeFile,chmod,symlink} from 'node:fs/promises';import
 import {load} from './extension-loader.mjs';
 const module=await load('../src/permissions.ts').catch(()=>({}));
 const grant={repo:'example/demo',operations:['gh_issue_edit'],allowChild:true,allowHeadless:true,projectIds:['PVT_demo']};
-async function fixture(){const dir=await realpath(await mkdtemp(join(tmpdir(),'pi-gh-permissions-')));const path=join(dir,'permissions.json');await writeFile(path,JSON.stringify({version:1,grants:[grant]}),{mode:0o600});return {dir,path};}
+async function fixture(){const dir=await realpath(await mkdtemp(join(tmpdir(),'deterministic-gh-permissions-')));const path=join(dir,'permissions.json');await writeFile(path,JSON.stringify({version:1,grants:[grant]}),{mode:0o600});return {dir,path};}
 test('permission loader is an explicit reusable boundary',()=>assert.equal(typeof module.loadPermissions,'function'));
 test('missing permission parent directories mean no grant',async()=>{const f=await fixture();assert.equal(await module.loadPermissions(join(f.dir,'missing','permissions.json'),{child:false,headless:false}),undefined);});
 test('FIFO permission file is rejected promptly without blocking open',async()=>{const {spawnSync}=await import('node:child_process');const f=await fixture(),path=join(f.dir,'fifo');assert.equal(spawnSync('/usr/bin/mkfifo',['-m','600',path]).status,0);const url=new URL('../dist/src/permissions.js',import.meta.url).href;const code=`import {loadPermissions} from ${JSON.stringify(url)};try{await loadPermissions(process.argv[1],{child:false,headless:false});process.exitCode=2;}catch{console.log('REJECTED');}`;const r=spawnSync(process.execPath,['--input-type=module','-e',code,path],{encoding:'utf8',timeout:1500});assert.equal(r.status,0,r.error?.message);assert.match(r.stdout,/REJECTED/);});
@@ -25,10 +25,10 @@ test('an agentApproval grant lets the agent approve every allowed write of the r
 test('agentApproval must be a boolean; without it nothing is agent-approved',async()=>{if(!module.loadPermissions)return;const f=await fixture();await writeFile(f.path,JSON.stringify({version:1,grants:[{...grant,agentApproval:'yes'}]}));await assert.rejects(()=>module.loadPermissions(f.path,{child:false,headless:false}));await writeFile(f.path,JSON.stringify({version:1,grants:[grant]}));assert.equal((await module.loadPermissions(f.path,{child:true,headless:true})).agentApproves('gh_issue_close','example/demo'),false);});
 test('agent approvals are appended to an owner-only log next to the permission file',async()=>{if(!module.loadPermissions)return;const {readFile,stat}=await import('node:fs/promises');const f=await fixture();await writeFile(f.path,JSON.stringify({version:1,grants:[{repo:'example/*',operations:['gh_issue_edit'],agentApproval:true}]}));const p=await module.loadPermissions(f.path,{child:false,headless:false});
  await p.recordAgentApproval({operation:'gh_issue_close',repo:'example/demo',digest:'d1'});await p.recordAgentApproval({operation:'gh_project_field_update',repo:'example/demo',projectId:'PVT_x',digest:'d2'});
- const log=join(f.dir,'pi-gh-agent-approvals.jsonl'),lines=(await readFile(log,'utf8')).trim().split('\n').map(l=>JSON.parse(l));
+ const log=join(f.dir,'deterministic-gh-agent-approvals.jsonl'),lines=(await readFile(log,'utf8')).trim().split('\n').map(l=>JSON.parse(l));
  assert.deepEqual(lines.map(l=>[l.operation,l.repo,l.projectId,l.digest]),[['gh_issue_close','example/demo',undefined,'d1'],['gh_project_field_update','example/demo','PVT_x','d2']]);
  assert.ok(lines.every(l=>typeof l.at==='string'&&l.approvedBy==='agent'));assert.equal((await stat(log)).mode&0o777,0o600);});
-test('agent approval grants can live in pi-gh-agent-approval.json beside an old-form permission file',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'pi-gh-agent-approval.json');
+test('agent approval grants can live in deterministic-gh-agent-approval.json beside an old-form permission file',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'deterministic-gh-agent-approval.json');
  assert.equal((await module.loadPermissions(f.path,{child:false,headless:false})).agentApproves('gh_issue_close','example/demo'),false,'no sidecar, no agent approval');
  await writeFile(side,JSON.stringify({version:1,grants:[{repo:'example/*',allowHeadless:true}]}),{mode:0o600});
  const p=await module.loadPermissions(f.path,{child:false,headless:true});
@@ -38,6 +38,6 @@ test('agent approval grants can live in pi-gh-agent-approval.json beside an old-
  assert.equal((await module.loadPermissions(f.path,{child:true,headless:true})).agentApproves('gh_issue_close','example/demo'),false,'allowChild defaults to false');
  assert.equal(await p.isCurrent(),true);
  await writeFile(side,JSON.stringify({version:1,grants:[]}));assert.equal(await p.isCurrent(),false,'a sidecar change invalidates the lease');});
-test('a broken or insecure sidecar fails closed',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'pi-gh-agent-approval.json');
+test('a broken or insecure sidecar fails closed',async()=>{if(!module.loadPermissions)return;const f=await fixture();const side=join(f.dir,'deterministic-gh-agent-approval.json');
  for(const bad of ['{x',JSON.stringify({version:1,grants:[{repo:'*'}]}),JSON.stringify({version:1,grants:[{repo:'example/*',operations:['gh_issue_close']}]}),JSON.stringify({version:1,grants:[{repo:'example/*',allowChild:'yes'}]})]){await writeFile(side,bad,{mode:0o600});await assert.rejects(()=>module.loadPermissions(f.path,{child:false,headless:false}),undefined,bad);}
  await writeFile(side,JSON.stringify({version:1,grants:[]}),{mode:0o644});await chmod(side,0o644);await assert.rejects(()=>module.loadPermissions(f.path,{child:false,headless:false}));});

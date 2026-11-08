@@ -18,7 +18,7 @@ export async function showApproval(view:ApprovalView,scope:Scope,ui:ExtensionCon
      const viewport=Math.max(1,rows-7);if(cachedWidth!==width){cachedLines=wrapTextWithAnsi(text,Math.max(1,width));cachedWidth=width;}const lines=cachedLines;
      scroll.updateLayout(lines.length,viewport,()=>tui.requestRender());
      const top=scroll.scrollTop,visible=lines.slice(top,top+viewport);
-     return [theme.fg('accent',truncateToWidth('pi-gh review: '+view.operation,width)),truncateToWidth('Target and content below. No changes yet.',width),'',...visible,'',truncateToWidth((selected===0?'[Cancel]  Approve':'Cancel  [Approve]')+'   '+(top+1)+'/'+lines.length,width),truncateToWidth('Up/Down/PgUp/PgDn scroll; Left/Right choose; Enter; Esc cancel',width)];
+     return [theme.fg('accent',truncateToWidth('deterministic-gh review: '+view.operation,width)),truncateToWidth('Target and content below. No changes yet.',width),'',...visible,'',truncateToWidth((selected===0?'[Cancel]  Approve':'Cancel  [Approve]')+'   '+(top+1)+'/'+lines.length,width),truncateToWidth('Up/Down/PgUp/PgDn scroll; Left/Right choose; Enter; Esc cancel',width)];
     },
     handleInput(data){
      if(settled)return;if(!scope.isCurrent()||scope.signal.aborted)return finish(false);

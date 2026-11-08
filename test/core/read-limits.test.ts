@@ -11,7 +11,7 @@ import {parseJson,parseGithubJson} from '../../src/core/data.js';
 // A fake gh that answers every GET with a page of large items, so responses pass 1 MiB per call and in total.
 // `total` items exist; each carries `size` bytes of text. per_page/page come from the endpoint.
 async function fakeGh(t:{after:(fn:()=>Promise<void>)=>void},total:number,size:number){
- const dir=await mkdtemp(join(tmpdir(),'pi-gh-limits-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const dir=await mkdtemp(join(tmpdir(),'deterministic-gh-limits-'));t.after(()=>rm(dir,{recursive:true,force:true}));
  const gh=join(dir,'gh');
  await writeFile(gh,`#!/usr/bin/env node
 const args=process.argv.slice(2),endpoint=args.find(a=>a.startsWith('repos/'))||'';
