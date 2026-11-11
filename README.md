@@ -1,14 +1,14 @@
-# pi-gh
+# deterministic-gh
 
 PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツールを別のPi拡張から組み合わせられます。Scaffoldの工程・ウェーブ・専用テンプレートやHerdr操作は、利用側の拡張が担当します。MIT。CLIのbinは提供しません。既存gh-issueflowを削除・変更する必要はありません。
 
 ## 要件と導入
 - Node.js >=22.19.0、Pi 1.0.4、認証済みGitHub CLI gh。実機検証はmacOS。
-- 認証情報・tokenをpi-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
-- 新機能を含むnpm版：`pi install npm:@papillon6814/pi-gh@0.12.0`。
-- Developmentだけで使う場合：`pi-profile packages add --profile developer npm:@papillon6814/pi-gh@0.12.0 --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
+- 認証情報・tokenをdeterministic-ghへ渡す設定はありません。Projectsには対象Projectへのアクセスと`project`相当の権限が必要です（Project作成も同じ）。権限不足時は停止し、自動再認証しません。
+- npm配布は終了しました（最後のnpm版は`@papillon6814/pi-gh` 0.8.0。npm側のdeprecateは今後の予定で、未実施）。以後はローカルでビルドしたスナップショットから導入します。
+- スナップショット導入：`npm install --ignore-scripts && npm run build && npm pack`で作ったtarballを`~/.pi/local-packages/deterministic-gh/<commit>`へ展開し、`pi-profile packages add --profile developer ~/.pi/local-packages/deterministic-gh/<commit> --replace`、`pi-profile packages install --profile developer`。共通settingsへは追加しません。
 - Profileの割り当て変更後はPiを再起動してください。起動済みプロセスは元のsource指定を保持するため、`/reload`だけでは新しい版の指定へ切り替わりません。
-- ソース利用は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/pi-gh`。
+- 一時的に使う場合は`npm install --ignore-scripts && npm run build`後、`pi -e /absolute/path/to/deterministic-gh`。
 - Piホスト提供APIはpeerで、本体を配布へ含めません。
 
 ## 個別ツール（契約バージョン1）
@@ -50,18 +50,18 @@ PiからGitHubを操作するTypeScript製の基盤拡張です。個別ツー�
 
 ## 別拡張からの呼び出し
 
-利用側は、pi-ghのロードと必要ツールの存在を確認し、不在・版不一致では停止してください。内部`dist/src/*`の直接importは公開SDK契約ではありません。
+利用側は、deterministic-ghのロードと必要ツールの存在を確認し、不在・版不一致では停止してください。内部`dist/src/*`の直接importは公開SDK契約ではありません。
 
 ```typescript
-// 利用側ツールのexecute内。信頼済みpi-ghが同じPiにロードされている前提。
+// 利用側ツールのexecute内。信頼済みdeterministic-ghが同じPiにロードされている前提。
 const capabilities = await ctx.executeTool("gh_capabilities", {});
-if (capabilities.isError) throw new Error("pi-gh unavailable");
+if (capabilities.isError) throw new Error("deterministic-gh unavailable");
 const info = capabilities.result.structuredContent as {
   data?: { contractVersion?: number; operations?: string[] };
 };
 if (info.data?.contractVersion !== 1 ||
     !info.data.operations?.includes("gh_issue_get")) {
-  throw new Error("Unsupported pi-gh contract");
+  throw new Error("Unsupported deterministic-gh contract");
 }
 const nested = await ctx.executeTool("gh_issue_get", {
   repo: "example/demo", issue: 10,
@@ -111,7 +111,7 @@ project-createはrepoのオーナー（UserまたはOrganization）配下に作�
 
 既定は従来と同じローカルTUI承認です。全文を読んでApproveを明示選択してください。既定Cancel、Escape/Ctrl-Cは取消。RPC・print/JSON・子エージェントは、対応するローカル許可がなければ変更を拒否します。`approved`フラグやdigestをAIが渡して承認する入口はありません。
 
-所有者が`~/.pi/agent/pi-gh-permissions.json`を配置した場合だけ、許可範囲内の操作を自動実行できます。PiのagentDir/Profileの設定とは独立した、HOME配下の固定パスです。リポジトリ内の設定は許可として読みません。
+所有者が`~/.pi/agent/deterministic-gh-permissions.json`を配置した場合だけ、許可範囲内の操作を自動実行できます。PiのagentDir/Profileの設定とは独立した、HOME配下の固定パスです。リポジトリ内の設定は許可として読みません。
 
 ```json
 {
@@ -130,8 +130,8 @@ project-createはrepoのオーナー（UserまたはOrganization）配下に作�
 - repoは`OWNER/REPO`の完全指定か、`OWNER/*`（そのオーナー配下の全リポジトリ。オーナー名は完全一致で、後から作ったリポジトリも含む）。それ以外のワイルドカード（`*`、`*/*`、`ex*/*`、`OWNER/de*`など）は不可。operationは完全指定です。Project変更にはprojectIdsの完全一致も必要です（作成前はIDがないため、`gh_project_create`はrepoとoperationだけで判定します）。
 - 子にはallowChild、UIのない実行にはallowHeadlessがそれぞれ必要です。省略はfalse。
 - 許可できる操作：`gh_issue_submit`、新しい変更ツール7種（`gh_project_create`を含む）、前提条件つき変更3種（`gh_issue_edit_if_current`・`gh_issue_labels_if_current`・`gh_issue_close_if_current`）、`gh_label_create`、`gh_label_edit`、`gh_issue_labels`。最後の3種は`gh_labels_apply`の操作別許可名です。ラベル削除は自動許可できません。
-- grantに`"agentApproval": true`を書くと、そのrepoへの書き込みのうち、`operations`に無いもの（許可できる操作に限る。Projectは任意のprojectId）も、確認画面を出さずにAIの判断として実行します（AI承認）。allowChild・allowHeadlessの条件はそのまま効きます。ラベル削除は禁止のままです。AI承認した操作は、実行の前に許可ファイルと同じディレクトリの`pi-gh-agent-approvals.jsonl`（mode 0600）へ1行ずつ記録します（時刻・操作・repo・projectId・内容digest）。記録できなければ変更しません。
-- AI承認は、許可ファイルと同じディレクトリの`pi-gh-agent-approval.json`にも書けます（`{"version":1,"grants":[{"repo":"OWNER/*","allowHeadless":true}]}`。grantのキーは`repo`・`allowChild`・`allowHeadless`だけで、許可ファイルと同じ所有者・mode・symlinkの条件）。0.8.0以前は`agentApproval`キーを知らずに許可ファイルごと停止するので、古い版と同じ許可ファイルを共有する間はこちらに置き、許可ファイルは旧形式のままにします。このファイルの変更でも許可は失効します。
+- grantに`"agentApproval": true`を書くと、そのrepoへの書き込みのうち、`operations`に無いもの（許可できる操作に限る。Projectは任意のprojectId）も、確認画面を出さずにAIの判断として実行します（AI承認）。allowChild・allowHeadlessの条件はそのまま効きます。ラベル削除は禁止のままです。AI承認した操作は、実行の前に許可ファイルと同じディレクトリの`deterministic-gh-agent-approvals.jsonl`（mode 0600）へ1行ずつ記録します（時刻・操作・repo・projectId・内容digest）。記録できなければ変更しません。
+- AI承認は、許可ファイルと同じディレクトリの`deterministic-gh-agent-approval.json`にも書けます（`{"version":1,"grants":[{"repo":"OWNER/*","allowHeadless":true}]}`。grantのキーは`repo`・`allowChild`・`allowHeadless`だけで、許可ファイルと同じ所有者・mode・symlinkの条件）。0.8.0以前は`agentApproval`キーを知らずに許可ファイルごと停止するので、古い版と同じ許可ファイルを共有する間はこちらに置き、許可ファイルは旧形式のままにします。このファイルの変更でも許可は失効します。
 - 許可ファイルの内容・inode・modeを固定し、変更前とghプロセス起動直前に再照合します。取り消された許可は再利用しません。許可ファイルは自動生成・変更しません。
 - 許可はこのツール群の境界です。任意のshell/ファイル編集権限を持つAIや同じOSユーザーの悪意あるプロセスを隔離するサンドボックスではありません。
 
@@ -152,7 +152,7 @@ Issue用YAMLはfieldsのrequired/options/順序/制限とmodels policyを正本�
 ## 開発・検証
 
 `npm run build`、`npm run typecheck`、`npm test`。
-`python3 scripts/test-pi-gh-cli.py --pi /absolute/path/to/pi`は合成HOME・偽gh・loopbackモデルで実PiのTUI/RPC/print・ネスト呼び出し・許可付き子実行・hooksを検証します。実アカウントや実GitHubへの試験投稿はしません。GitHubのライブ変更互換性は未実測です。
+`python3 scripts/test-deterministic-gh-cli.py --pi /absolute/path/to/pi`は合成HOME・偽gh・loopbackモデルで実PiのTUI/RPC/print・ネスト呼び出し・許可付き子実行・hooksを検証します。実アカウントや実GitHubへの試験投稿はしません。GitHubのライブ変更互換性は未実測です。
 `npm pack`にはentry、compiled core、templates、架空examples、README、LICENSEだけを含め、docs/test/認証は含めません。
 
 GitHub API参照：[sub-issues](https://docs.github.com/en/rest/issues/sub-issues)、[dependencies](https://docs.github.com/en/rest/issues/issue-dependencies)、[Projects V2](https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-api-to-manage-projects)。

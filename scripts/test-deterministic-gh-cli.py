@@ -58,7 +58,7 @@ class Child:
 
 class Acceptance(unittest.TestCase):
  def setUp(self):
-  self.home=Path(tempfile.mkdtemp(prefix='pi-gh-cli-')).resolve()
+  self.home=Path(tempfile.mkdtemp(prefix='deterministic-gh-cli-')).resolve()
   self.agent=self.home/'agent';self.agent.mkdir();self.cwd=self.home/'cwd';self.cwd.mkdir();self.requests=[];self.children=[]
   self.pkg=Path(OPTIONS.package).resolve();self.record=self.home/'gh-record';self.tool='gh_issue_submit';self.tool_args={'draftPath':str(self.cwd/'draft.json')}
   self.parallel=False
@@ -104,7 +104,7 @@ class Acceptance(unittest.TestCase):
  def child(self):
   c=Child(self.args(),self.env,self.cwd);self.children.append(c);return c
  def prompt(self,c):
-  c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(),20)
+  c.wait(lambda:'OWNED_SESSION_READY' in c.text());c.send('/owned-ready\r');c.wait(lambda:'OWNED_READY' in c.text());c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'deterministic-gh review:' in c.text(),20)
  def done(self,c):
   c.wait(lambda:'GH_FIXTURE_DONE' in c.text(),20)
  def tearDown(self):
@@ -125,7 +125,7 @@ class Acceptance(unittest.TestCase):
   c=self.child();self.prompt(c);fcntl.ioctl(c.master,termios.TIOCSWINSZ,struct.pack('HHHH',16,40,0,0));os.kill(c.p.pid,signal.SIGWINCH);c.pump(.2);c.send('\x1b[6~'*15+'\x1b');self.done(c);self.assertFalse(self.record.exists())
  def test_print_and_rpc_refuse_changes(self):
   for args in [('--mode','json','--print','OWNED_TOOL_REQUEST'),('--print','OWNED_TOOL_REQUEST')]:
-   r=subprocess.run(self.args(*args),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertNotIn('pi-gh review:',r.stdout)
+   r=subprocess.run(self.args(*args),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20);self.assertEqual(r.returncode,0,r.stderr);self.assertFalse(self.record.exists());self.assertIn('APPROVAL_UI_REQUIRED',json.dumps(self.requests));self.assertNotIn('deterministic-gh review:',r.stdout)
   p=subprocess.Popen(self.args('--mode','rpc'),env=self.env,cwd=self.cwd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   try:
    p.stdin.write(b'{"type":"prompt","message":"OWNED_TOOL_REQUEST"}\n');p.stdin.flush();events=[];pending=b'';deadline=time.monotonic()+20
@@ -163,10 +163,10 @@ class Acceptance(unittest.TestCase):
 
  def test_tree_requires_fresh_confirmation(self):
   c=self.child();self.prompt(c);c.send('\x1b');self.done(c);self.assertFalse(self.record.exists())
-  mark=len(c.data);c.send('/owned-tree\r');c.wait(lambda:'OWNED_TREE_DONE' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'pi-gh review:' in c.text(mark));self.assertFalse(self.record.exists());c.send('\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
+  mark=len(c.data);c.send('/owned-tree\r');c.wait(lambda:'OWNED_TREE_DONE' in c.text(mark));c.send('OWNED_TOOL_REQUEST\r');c.wait(lambda:'deterministic-gh review:' in c.text(mark));self.assertFalse(self.record.exists());c.send('\r');c.wait(lambda:'GH_FIXTURE_DONE' in c.text(mark));self.assertFalse(self.record.exists())
  def policy(self,repo='example/demo'):
   directory=self.home/'.pi/agent';directory.mkdir(parents=True,exist_ok=True)
-  path=directory/'pi-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':repo,'operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
+  path=directory/'deterministic-gh-permissions.json';path.write_text(json.dumps({'version':1,'grants':[{'repo':repo,'operations':['gh_issue_submit'],'allowHeadless':True,'allowChild':True}]}));path.chmod(0o600)
  def test_nested_read_and_change_defaults(self):
   self.tool='owned_nested';self.tool_args={'operation':'gh_issue_validate','args':{'draftPath':str(self.cwd/'draft.json')}}
   r=subprocess.run(self.args('--print','OWNED_TOOL_REQUEST'),env=self.env,cwd=self.cwd,text=True,capture_output=True,stdin=subprocess.DEVNULL,timeout=20)
