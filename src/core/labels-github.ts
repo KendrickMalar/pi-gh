@@ -28,7 +28,7 @@ export class GhClient{
  async list(suffix:string):Promise<unknown[]>{
  const result:unknown[]=[];
  for(let page=1;page<=100;page++){
- const value=await this.read(suffix+(suffix.includes('?')?'&':'?')+'per_page=100&page='+page);
+ const value=await this.read(suffix+(suffix.includes('?')?'&':'?')+'per_page=100&page='+String(page));
  if(!Array.isArray(value)||value.length>100)fail('GITHUB_RESPONSE','','Expected a paginated array.');
  result.push(...(value as unknown[]));if(value.length<100)return result;
  }
@@ -52,14 +52,14 @@ export function requireLabels(all:Label[],names:string[]):Label[]{
 export function parseIssue(v:unknown,repo:string):{identity:Affected;labels:Label[]}{
  if(!record(v)||!Number.isSafeInteger(v.id)||(v.id as number)<1||!nonblank(v.node_id)||!Number.isSafeInteger(v.number)||(v.number as number)<1||!Array.isArray(v.labels)||typeof v.html_url!=='string')fail('GITHUB_RESPONSE','','Invalid Issue response.');
  const kind=v.pull_request===undefined?'issue':'pull-request';
- const expected='https://github.com/'+repo+'/'+(kind==='issue'?'issues':'pull')+'/'+v.number;
+ const expected='https://github.com/'+repo+'/'+(kind==='issue'?'issues':'pull')+'/'+String(v.number);
  if(v.html_url.toLowerCase()!==expected.toLowerCase())fail('GITHUB_RESPONSE','','Unexpected Issue URL.');
  const labels=v.labels.map(parseLabel);
  if(new Set(labels.map(l=>l.id)).size!==labels.length||new Set(labels.map(l=>labelKey(l.name))).size!==labels.length)fail('GITHUB_RESPONSE','','Duplicate Issue labels.');
  return {identity:{id:v.id as number,node_id:v.node_id,number:v.number as number,url:v.html_url,kind},labels:sortLabels(labels)};
 }
 export async function readIssue(client:GhClient,number:number){
- const issue=parseIssue(await client.read('issues/'+number),client.repo);
+ const issue=parseIssue(await client.read('issues/'+String(number)),client.repo);
  if(issue.identity.number!==number||issue.identity.kind!=='issue')fail('LABEL_ISSUE','','Target must be an Issue, not a pull request.');
  return issue;
 }

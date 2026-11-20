@@ -7,7 +7,7 @@ export function renderIssue(issue: ValidatedIssue): {
     const { draft: d, bundle: { template: t } } = issue;
     const blocks: string[] = [];
     if (d.parentIssue !== undefined)
-        blocks.push('## 親Issue\n\nhttps://github.com/' + d.repo + '/issues/' + d.parentIssue);
+        blocks.push('## 親Issue\n\nhttps://github.com/' + d.repo + '/issues/' + String(d.parentIssue));
     for (const f of t.fields) {
         const v = d.fields[f.id];
         if (v === undefined)

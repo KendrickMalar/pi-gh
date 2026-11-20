@@ -14,6 +14,7 @@ export function validateRepo(value:unknown): asserts value is string {
  fail('LABEL_REPO','repo','Expected OWNER/REPO.');
 }
 export function validateLabelName(value:unknown): asserts value is string {
+ // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
  if(!nonblank(value)||value==='.'||value==='..'||/[\u0000-\u001f\u007f]/.test(value)||Array.from(value).length>50)
  fail('LABEL_NAME','labels','Expected a nonblank label name up to 50 characters without control characters.');
 }
@@ -42,11 +43,12 @@ export function validateLabelChange(input:CapturedInput):LabelChange {
  if(!Array.isArray(v.labels)||v.labels.length<1||v.labels.length>100)fail('LABEL_LIST','labels','Expected 1 to 100 labels to create.');
  const seen=new Set<string>();
  v.labels.forEach((l:unknown,i:number)=>{
-  if(!record(l))fail('LABEL_INPUT','labels['+i+']','Expected a label object.');
-  keys(l,['name','color','description'],'labels['+i+']');validateLabelName(l.name);
-  if(typeof l.color!=='string'||! /^[0-9a-f]{6}$/i.test(l.color))fail('LABEL_COLOR','labels['+i+'].color','Expected a six-digit hexadecimal color.');
+  if(!record(l))fail('LABEL_INPUT','labels['+String(i)+']','Expected a label object.');
+  keys(l,['name','color','description'],'labels['+String(i)+']');validateLabelName(l.name);
+  if(typeof l.color!=='string'||! /^[0-9a-f]{6}$/i.test(l.color))fail('LABEL_COLOR','labels['+String(i)+'].color','Expected a six-digit hexadecimal color.');
+  // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
   if(l.description!==undefined&&(typeof l.description!=='string'||/[\u0000-\u001f\u007f]/.test(l.description)||Array.from(l.description).length>100))
-  fail('LABEL_DESCRIPTION','labels['+i+'].description','Expected a single-line description up to 100 characters.');
+  fail('LABEL_DESCRIPTION','labels['+String(i)+'].description','Expected a single-line description up to 100 characters.');
   const key=labelKey(l.name);if(seen.has(key))fail('LABEL_DUPLICATE','labels','Duplicate label name.');seen.add(key);
  });
  } else {
@@ -54,6 +56,7 @@ export function validateLabelChange(input:CapturedInput):LabelChange {
  if(v.newName!==undefined)validateLabelName(v.newName);
  if(v.operation==='label-create'||v.color!==undefined)
  if(typeof v.color!=='string'||! /^[0-9a-f]{6}$/i.test(v.color))fail('LABEL_COLOR','color','Expected a six-digit hexadecimal color.');
+ // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
  if(v.description!==undefined&&(typeof v.description!=='string'||/[\u0000-\u001f\u007f]/.test(v.description)||Array.from(v.description).length>100))
  fail('LABEL_DESCRIPTION','description','Expected a single-line description up to 100 characters.');
  if(v.operation==='label-edit'&&v.newName===undefined&&v.color===undefined&&v.description===undefined)fail('LABEL_EMPTY','','No label changes requested.');

@@ -20,22 +20,22 @@ export class GithubApi{
  async rest(endpoint:string):Promise<unknown>{const stdout=await this.get(endpoint);if(stdout===undefined)fail('GITHUB_READ','','GitHub read failed.');return this.decode(stdout);}
  async viewer():Promise<string>{const v=object(await this.rest('user'));if(typeof v.login!=='string'||!v.login)fail('GITHUB_RESPONSE','','Expected the authenticated login.');return v.login;}
  async restList(endpoint:string):Promise<unknown[]>{
-  const all:unknown[]=[];for(let page=1;page<=100;page++){const items=array(await this.rest(endpoint+(endpoint.includes('?')?'&':'?')+'per_page=100&page='+page));all.push(...items);if(items.length<100)return all;}fail('GITHUB_LIMIT','','Pagination limit exceeded.');
+  const all:unknown[]=[];for(let page=1;page<=100;page++){const items=array(await this.rest(endpoint+(endpoint.includes('?')?'&':'?')+'per_page=100&page='+String(page)));all.push(...items);if(items.length<100)return all;}fail('GITHUB_LIMIT','','Pagination limit exceeded.');
  }
  // Issue bodies reach 64 KiB each, so a page of them is large and slow to read.
  // A page that cannot be read is retried at half the size (64 down to 1); the offset stays exact because each size divides the larger ones.
  async issueList(endpoint:string):Promise<unknown[]>{
   const all:unknown[]=[];let size=64;
   for(let calls=0;calls<2000;calls++){
-   const stdout=await this.get(endpoint+(endpoint.includes('?')?'&':'?')+'per_page='+size+'&page='+(all.length/size+1));
+   const stdout=await this.get(endpoint+(endpoint.includes('?')?'&':'?')+'per_page='+String(size)+'&page='+String(all.length/size+1));
    if(stdout===undefined){if(size===1)fail('GITHUB_READ','','GitHub read failed.');size/=2;continue;}
    const items=array(this.decode(stdout));all.push(...items);if(items.length<size)return all;
   }
   fail('GITHUB_LIMIT','','Pagination limit exceeded.');
  }
  async issue(repo:string,number:number):Promise<JsonObject>{
-  const v=object(await this.rest('repos/'+repo+'/issues/'+number));
-  if(v.pull_request!==undefined||v.number!==number||!Number.isSafeInteger(v.id)||(v.id as number)<1||typeof v.node_id!=='string'||!/^I_[\w-]+$/.test(v.node_id)||typeof v.html_url!=='string'||v.html_url.toLowerCase()!==('https://github.com/'+repo+'/issues/'+number).toLowerCase())fail('GITHUB_IDENTITY','','Expected the exact GitHub Issue, not a PR.');
+  const v=object(await this.rest('repos/'+repo+'/issues/'+String(number)));
+  if(v.pull_request!==undefined||v.number!==number||!Number.isSafeInteger(v.id)||(v.id as number)<1||typeof v.node_id!=='string'||!/^I_[\w-]+$/.test(v.node_id)||typeof v.html_url!=='string'||v.html_url.toLowerCase()!==('https://github.com/'+repo+'/issues/'+String(number)).toLowerCase())fail('GITHUB_IDENTITY','','Expected the exact GitHub Issue, not a PR.');
   return v;
  }
  async graphql(query:string,variables:JsonObject):Promise<JsonObject>{

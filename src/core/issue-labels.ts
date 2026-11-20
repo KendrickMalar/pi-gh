@@ -33,7 +33,7 @@ export async function submitLabelledIssue(issue:ValidatedIssue,digest:string,opt
  const raw=parseGithubJson(Buffer.from(result.stdout));const created=parseIssue(raw,fixed.repo);
  if(!record(raw)||raw.title!==fixed.title||raw.body!==fixed.body||created.identity.kind!=='issue')return uncertain;
  const current=await readIssue(client,created.identity.number);
- const confirmed=await client.read('issues/'+created.identity.number);
+ const confirmed=await client.read('issues/'+String(created.identity.number));
  if(current.identity.id!==created.identity.id||current.identity.node_id!==created.identity.node_id||JSON.stringify(current.labels)!==JSON.stringify(preview.labelState)||!record(confirmed)||confirmed.title!==fixed.title||confirmed.body!==fixed.body)return {...uncertain,candidateUrl:created.identity.url};
  return {status:'created',url:created.identity.url};
  }catch{return uncertain}

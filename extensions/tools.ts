@@ -22,7 +22,7 @@ const noArgs=Type.Object({},{additionalProperties:false});
 const issueList=Type.Object({repo,state:Type.Optional(Type.Union([Type.Literal('open'),Type.Literal('closed'),Type.Literal('all')])),labels:Type.Optional(Type.Array(Type.String({minLength:1,maxLength:50}),{minItems:1,maxItems:10}))},{additionalProperties:false});
 const projectRead=Type.Object({projectId:Type.String({pattern:'^PVT_[A-Za-z0-9_-]+$'})},{additionalProperties:false});
 const labelsRead=Type.Object({repo},{additionalProperties:false});
-function identity(ctx:ExtensionToolContext){return ctx.sessionManager.getSessionId()+':'+ctx.sessionManager.getLeafId();}
+function identity(ctx:ExtensionToolContext){return ctx.sessionManager.getSessionId()+':'+String(ctx.sessionManager.getLeafId());}
 function render(result:OperationResult){
  const safe=safeResult(result),full=JSON.stringify(safe),limit=32768;
  return {content:[{type:'text' as const,text:full.length<=limit?full:full.slice(0,limit)+'\n[truncated; complete masked data in structuredContent]'}],details:safe,structuredContent:safe as never,isError:['rejected','not-started','unknown'].includes(safe.status)};

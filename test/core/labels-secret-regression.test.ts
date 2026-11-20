@@ -19,7 +19,7 @@ for(const location of ['change','remote-description','remote-name','issue-remote
  const args=issue?[path,'--template',f.path]:[path];
  const p=f.run(issue?['preview',...args,'--json']:['labels','preview',...args,'--json']);
  assert.equal(p.status,0,p.stderr);
- const preview=JSON.parse(p.stdout);
+ const preview=JSON.parse(p.stdout) as {digest:string;noop?:boolean;sensitive?:boolean;operation?:string;before?:unknown;after:{name:string}[];labels?:string[]};
  assert.equal(preview.sensitive,true);
  assert.ok(!p.stdout.includes('abcdefghi')&&!p.stdout.includes('bcdefghi'),'secret must not be displayed');
  const result=f.run(issue?['submit',...args,'--approved-digest',preview.digest]:['labels','apply',...args,'--approved-digest',preview.digest]);

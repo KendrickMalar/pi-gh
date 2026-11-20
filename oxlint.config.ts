@@ -34,41 +34,25 @@ export default defineConfig({
     },
     {
       // noUncheckedIndexedAccess の下で、直前の検査済みの添字・Map 参照に付けている。
-      // 件数: src 57、test 34（計 91）。
+      // 件数: src 57、test 34（元の数。どちらも 30 件超。ルールごと・ディレクトリごとに数えた）。
       files: [`src/**/*.${ts}`, `test/**/*.${ts}`],
       rules: { "typescript/no-non-null-assertion": "off" },
     },
     {
-      // 文字列と数値・null の連結でメッセージを組み立てている。テンプレートへの置換は件数が多い。
-      // 件数: src 24、test 9、extensions 3（計 36）。
-      files: [`src/**/*.${ts}`, `test/**/*.${ts}`, `extensions/**/*.${ts}`],
-      rules: { "typescript/restrict-plus-operands": "off" },
-    },
-    {
       // type を interface に替えると、添字シグネチャを持つ型からの as が型エラーになる。既存の書き方（type）を保つ。
-      // 件数: src 34、extensions 1（計 35）。
-      files: [`src/**/*.${ts}`, `extensions/**/*.${ts}`],
+      // 件数: src 34（extensions は 1 件で 30 以下のため直した）。
+      files: [`src/**/*.${ts}`],
       rules: { "typescript/consistent-type-definitions": "off" },
     },
     {
-      // 制御文字の拒否が目的の正規表現。ルールの指摘そのものが仕様。
-      // 件数: src 6、extensions 1（計 7）。
-      files: [`src/**/*.${ts}`, `extensions/**/*.${ts}`],
-      rules: { "no-control-regex": "off" },
-    },
-    {
       // テストは node:test。トップレベルの test() は Promise を返すが await しない作法。
-      // JSON.parse などの any を直接扱う。
-      // 件数: no-floating-promises 100、no-unsafe-member-access 109、no-unsafe-assignment 26、
-      // no-unsafe-call 22、no-unsafe-argument 17、no-unsafe-return 4（すべて test）。
+      // JSON.parse などの any のメンバーを直接読む。
+      // 件数: no-floating-promises 100、no-unsafe-member-access 109（どちらも test。30 件超）。
+      // no-unsafe-assignment・call・argument・return は型の注釈で直したので有効。
       files: [`test/**/*.${ts}`],
       rules: {
         "typescript/no-floating-promises": "off",
         "typescript/no-unsafe-member-access": "off",
-        "typescript/no-unsafe-assignment": "off",
-        "typescript/no-unsafe-call": "off",
-        "typescript/no-unsafe-argument": "off",
-        "typescript/no-unsafe-return": "off",
       },
     },
   ],

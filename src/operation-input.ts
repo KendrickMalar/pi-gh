@@ -46,9 +46,11 @@ export function validateChange(name:GithubOperation,input:CapturedInput):Change{
  const definition=changes[raw.operation];if(!definition||definition.name!==name)fail('ARGUMENT','','Change does not match the tool operation.');
  keys(raw,['version','repo','operation',...definition.keys],'change');validateRepo(raw.repo);
  if(raw.operation!=='project-field-update'&&raw.operation!=='project-create'&&raw.operation!=='project-close'&&raw.operation!=='repo-create')positive(raw.issue);
+ // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
  if(raw.operation==='project-create'&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title!==raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','title','Invalid project title.');
  if(raw.operation==='issue-edit'){
   if(raw.title===undefined&&raw.body===undefined)fail('ARGUMENT','','No edit requested.');
+  // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
   if(raw.title!==undefined&&(typeof raw.title!=='string'||!raw.title.trim()||raw.title.length>256||/[\u0000-\u001f\u007f]/.test(raw.title)))fail('ARGUMENT','','Invalid title.');
   if(raw.body!==undefined&&(typeof raw.body!=='string'||raw.body.length>65536))fail('ARGUMENT','','Invalid body.');
  }
