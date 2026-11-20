@@ -4,7 +4,7 @@ export class RuntimeScope {
  isCurrent(stamp:string){return stamp===this.stamp;}
  acquire(caller?:AbortSignal){
   const controller=new AbortController(),stamp=this.stamp;this.leases.add(controller);
-  const abort=()=>controller.abort();caller?.addEventListener('abort',abort,{once:true});if(caller?.aborted)abort();
+  const abort=()=>{ controller.abort(); };caller?.addEventListener('abort',abort,{once:true});if(caller?.aborted)abort();
   let disposed=false;return {stamp,signal:controller.signal,dispose:()=>{if(disposed)return;disposed=true;caller?.removeEventListener('abort',abort);this.leases.delete(controller);}};
  }
  invalidate(){this.generation++;for(const controller of this.leases)controller.abort();this.leases.clear();}

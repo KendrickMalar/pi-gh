@@ -10,8 +10,8 @@ export async function runGh(args:string[],body:string,options:GhOptions={}):Prom
  return new Promise(resolve=>{
  const group=process.platform!=='win32';
  let child;
- try{if(options.signal?.aborted||options.beforeStart?.()===false||options.signal?.aborted)return resolve({status:'not-started',stdout:''});child=spawn(options.ghExecutable??'gh',args,{shell:false,detached:group,env:{...process.env,...options.env,GH_HOST:'github.com'},stdio:['pipe','pipe','pipe']});}
- catch{return resolve({status:'not-started',stdout:''})}
+ try{if(options.signal?.aborted||options.beforeStart?.()===false||options.signal?.aborted){ resolve({status:'not-started',stdout:''}); return; }child=spawn(options.ghExecutable??'gh',args,{shell:false,detached:group,env:{...process.env,...options.env,GH_HOST:'github.com'},stdio:['pipe','pipe','pipe']});}
+ catch{ resolve({status:'not-started',stdout:''}); return;}
  let started=false,failed=false,settled=false,stopping=false,stdoutBytes=0,stderrBytes=0;
  const chunks:Buffer[]=[];let cleanup:NodeJS.Timeout|undefined;
  const signal=(kind:NodeJS.Signals)=>{try{if(group&&child.pid)process.kill(-child.pid,kind);else child.kill(kind)}catch{/* Owned process already gone. */}};
@@ -20,10 +20,10 @@ export async function runGh(args:string[],body:string,options:GhOptions={}):Prom
  const timer=setTimeout(abort,timeout);
  child.once('spawn',()=>{started=true;if(stopping)signal('SIGTERM')});
  child.once('error',()=>{failed=true;if(!started)finish('not-started');else abort()});
- child.stdout.on('data',(b:Buffer)=>{stdoutBytes+=b.length;if(stdoutBytes>max)return abort();chunks.push(b)});
+ child.stdout.on('data',(b:Buffer)=>{stdoutBytes+=b.length;if(stdoutBytes>max){ abort(); return; }chunks.push(b)});
  child.stderr.on('data',(b:Buffer)=>{stderrBytes+=b.length;if(stderrBytes>max)abort()});
  child.stdin.on('error',abort);child.stdout.on('error',abort);child.stderr.on('error',abort);
- child.once('close',(code,signal)=>finish(!started?'not-started':!failed&&code===0&&!signal?'ok':'unknown'));
+ child.once('close',(code,signal)=>{ finish(!started?'not-started':!failed&&code===0&&!signal?'ok':'unknown'); });
  options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted)abort();
  child.stdin.end(body);
  });

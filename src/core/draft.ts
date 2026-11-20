@@ -1,5 +1,5 @@
 import { capture, parseJson, record, keys, nonblank, fail, DataError } from './data.js';
-import type { CapturedInput, Criterion, Draft, FieldDefinition, TemplateBundle, ValidatedIssue, ValidationProblem } from './types.js';
+import type { CapturedInput, Draft, FieldDefinition, TemplateBundle, ValidatedIssue, ValidationProblem } from './types.js';
 import { validateLabelNames } from './labels-input.js';
 export async function loadDraft(path: string): Promise<CapturedInput> { return capture(path); }
 function string(value: unknown, f: FieldDefinition, path: string) {
@@ -51,9 +51,10 @@ export function validateDraft(input: CapturedInput, bundle: TemplateBundle): {
         keys(value, ['version', 'template', 'repo', 'title', 'parentIssue', 'labels', 'fields', 'agents'], 'draft');
         if (value.version !== 1 || value.template !== t.id)
             fail('DRAFT_TEMPLATE', 'template', 'Draft template does not match.');
-        if (typeof value.repo !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9-]{0,99}\/[a-zA-Z0-9_.][a-zA-Z0-9_.-]{0,99}$/.test(value.repo) || value.repo.endsWith('/.') || value.repo.endsWith('/..'))
+        if (typeof value.repo !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}\/[\w.][\w.-]{0,99}$/i.test(value.repo) || value.repo.endsWith('/.') || value.repo.endsWith('/..'))
             fail('DRAFT_REPO', 'repo', 'Expected OWNER/REPO.');
-        if (!nonblank(value.title) || /[\r\n\u0000-\u001f\u007f]/.test(value.title) || Array.from(value.title).length > 256)
+        // oxlint-disable-next-line no-control-regex -- 制御文字を拒否・除去するのが目的の正規表現
+        if (!nonblank(value.title) || /[\u0000-\u001f\u007f]/.test(value.title) || Array.from(value.title).length > 256)
             fail('DRAFT_TITLE', 'title', 'Expected a nonblank single-line title up to 256 characters.');
         if (value.labels !== undefined) validateLabelNames(value.labels);
         if (t.kind === 'task' && (!Number.isSafeInteger(value.parentIssue) || (value.parentIssue as number) < 1))

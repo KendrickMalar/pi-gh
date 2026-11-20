@@ -17,7 +17,7 @@ function active(ctx:OperationContext){return !ctx.signal.aborted&&ctx.isCurrent(
 function requireActive(ctx:OperationContext){if(!active(ctx))fail('STALE_OPERATION','','Operation was cancelled or its session changed.');}
 async function confirm(view:ApprovalView,ctx:OperationContext):Promise<boolean>{
  if(!active(ctx))return false;
- let listener:()=>void=()=>{};const cancelled=new Promise<boolean>(resolve=>{listener=()=>resolve(false);ctx.signal.addEventListener('abort',listener,{once:true});});
+ let listener:()=>void=()=>{ /* 下で差し替える */ };const cancelled=new Promise<boolean>(resolve=>{listener=()=>{ resolve(false); };ctx.signal.addEventListener('abort',listener,{once:true});});
  try{return await Promise.race([Promise.resolve().then(()=>active(ctx)?ctx.confirm(view):false),cancelled]);}
  finally{ctx.signal.removeEventListener('abort',listener);}
 }

@@ -25,7 +25,7 @@ function precondition(c:Change,s:Snapshot){
 }
 /** Complete repository label list as {name,color,description}; malformed or case-duplicated listings are refused. */
 function listedLabels(raw:unknown[]){
- const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-fA-F]{6}$/.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name as string,color:l.color.toLowerCase(),description:(l.description as string|null|undefined)??''};});
+ const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-f]{6}$/i.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name,color:l.color.toLowerCase(),description:(l.description)??''};});
  if(new Set(labels.map(l=>labelKey(l.name))).size!==labels.length)fail('GITHUB_RESPONSE','','Duplicate labels in listing.');
  return labels.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 }
@@ -87,7 +87,7 @@ async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  if(c.operation==='issue-close'){s.noop=s.issue!.state==='closed'&&s.issue!.state_reason===(c.reason??'completed');return s;}
  if(c.operation==='subissue-add'||c.operation==='dependency-add'){
   s.related=await api.issue(c.repo,c.relatedIssue!);const suffix=c.operation==='subissue-add'?'sub_issues':'dependencies/blocked_by';
-  s.relations=await api.restList('repos/'+c.repo+'/issues/'+c.issue+'/'+suffix);s.noop=s.relations.some(v=>object(v).id===s.related!.id);return s;
+  s.relations=await api.restList('repos/'+c.repo+'/issues/'+String(c.issue)+'/'+suffix);s.noop=s.relations.some(v=>object(v).id===s.related!.id);return s;
  }
  const fields=await api.project(c.projectId!,'fields'),items=await api.project(c.projectId!,'items');s.project={id:fields.id};
  if(c.operation==='project-add-issue'){
@@ -106,7 +106,7 @@ async function snapshot(api:GithubApi,c:Change,verify=false):Promise<Snapshot>{
  return s;
 }
 async function apply(api:GithubApi,c:Change,before:Snapshot){
- const endpoint='repos/'+c.repo+'/issues/'+c.issue;
+ const endpoint='repos/'+c.repo+'/issues/'+String(c.issue);
  switch(c.operation){
   case 'issue-edit':return api.mutateRest(endpoint,'PATCH',{...(c.title!==undefined?{title:c.title}:{}),...(c.body!==undefined?{body:c.body}:{})});
   case 'issue-close':case 'issue-close-if-current':return api.mutateRest(endpoint,'PATCH',{state:'closed',state_reason:c.reason??'completed'});
@@ -115,7 +115,7 @@ async function apply(api:GithubApi,c:Change,before:Snapshot){
   case 'subissue-add':return api.mutateRest(endpoint+'/sub_issues','POST',{sub_issue_id:before.related!.id});
   case 'dependency-add':return api.mutateRest(endpoint+'/dependencies/blocked_by','POST',{issue_id:before.related!.id});
   case 'project-add-issue':return api.mutateGraphql(addProjectIssueMutation,{projectId:c.projectId,contentId:before.issue!.node_id});
-  case 'repo-create':return api.mutateRest(before.owner!.type==='User'?'user/repos':'orgs/'+before.owner!.login+'/repos','POST',{name:c.repo.split('/')[1]!,private:true});
+  case 'repo-create':return api.mutateRest(before.owner!.type==='User'?'user/repos':'orgs/'+String(before.owner!.login)+'/repos','POST',{name:c.repo.split('/')[1]!,private:true});
   case 'project-create':return api.mutateGraphql(createProjectMutation,{ownerId:before.owner!.id,repositoryId:before.owner!.repositoryId,title:c.title});
   case 'project-close':return api.mutateGraphql(closeProjectMutation,{projectId:c.projectId});
   case 'project-field-update':return api.mutateGraphql(updateProjectFieldMutation,{projectId:c.projectId,itemId:c.itemId,fieldId:c.fieldId,value:c.value});
@@ -136,15 +136,15 @@ export async function runGithubOperation(name:GithubOperation,args:GithubArgs,ct
    // gh_project_get also lists the linked repositories (nameWithOwner, every page), read with the same query the project-close check uses.
    else if(name==='gh_project_get')data={...await api.project(args.projectId!,'fields'),repositories:await api.projectRepos(args.projectId!)};
    else if(name==='gh_project_items')data=await api.project(args.projectId!,'items');
-   else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+args.repo+'/labels'))};
-   else if(name==='gh_issue_list')data=(await api.issueList('repos/'+args.repo+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
+   else if(name==='gh_labels_list')data={repo:args.repo,labels:listedLabels(await api.restList('repos/'+String(args.repo)+'/labels'))};
+   else if(name==='gh_issue_list')data=(await api.issueList('repos/'+String(args.repo)+'/issues?state='+(args.state??'all')+(args.labels?'&labels='+encodeURIComponent(args.labels.join(',')):''))).filter(v=>object(v).pull_request===undefined);
    else if(name==='gh_issue_get'){
     // The hash and the file use the raw body (null is empty), so callers never copy masked or escaped result text.
     const issue=await api.issue(args.repo!,args.issue!),body=typeof issue.body==='string'?issue.body:'';requireActive(ctx);
     if(args.bodyPath!==undefined)await writeBody(args.bodyPath,body);
     data={...issue,bodySha256:sha256(body),bodyBytes:Buffer.byteLength(body,'utf8'),...(args.bodyPath!==undefined?{bodyPath:args.bodyPath}:{})};
    }
-   else {await api.issue(args.repo!,args.issue!);data=await api.restList('repos/'+args.repo+'/issues/'+args.issue+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
+   else {await api.issue(args.repo!,args.issue!);data=await api.restList('repos/'+String(args.repo)+'/issues/'+String(args.issue)+'/'+(name==='gh_subissues_list'?'sub_issues':'dependencies/blocked_by'));}
    requireActive(ctx);return safeResult({status:'read',data});
   }
   const path=resolve(ctx.cwd,args.changePath!),input=await loadDraft(path),change=validateChange(name,input);

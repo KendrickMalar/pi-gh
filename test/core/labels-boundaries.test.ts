@@ -10,7 +10,7 @@ test('repository replacement invalidates label creation approval',async t=>{
  const f=await labelsFixture(t);const path=await f.write({...base,operation:'label-create',name:'new',color:'ffffff'});
  const p=f.run(['labels','preview',path,'--json']);assert.equal(p.status,0,p.stderr);
  const s=await f.read();s.repository={id:999,node_id:'R999',full_name:'example/demo',html_url:'https://github.com/example/demo'};await writeFile(f.state,JSON.stringify(s));
- const r=f.run(['labels','apply',path,'--approved-digest',JSON.parse(p.stdout).digest]);assert.equal(r.status,2,r.stderr);assert.equal((await f.read()).writes,0);
+ const r=f.run(['labels','apply',path,'--approved-digest',(JSON.parse(p.stdout) as {digest:string}).digest]);assert.equal(r.status,2,r.stderr);assert.equal((await f.read()).writes,0);
 });
 test('repository transfer redirect cannot authorize a different repository',async t=>{
  const f=await labelsFixture(t,{...initial(),repository:{id:77,node_id:'R77',full_name:'other/demo',html_url:'https://github.com/other/demo'}});
@@ -20,7 +20,7 @@ test('labelled Issue creation binds repository identity',async t=>{
  const f=await labelsFixture(t);const path=await f.write({...draft(),labels:['keep']});const args=[path,'--template',f.path];
  const p=f.run(['preview',...args,'--json']);assert.equal(p.status,0,p.stderr);
  const s=await f.read();s.repository={id:999,node_id:'R999',full_name:'example/demo',html_url:'https://github.com/example/demo'};await writeFile(f.state,JSON.stringify(s));
- const r=f.run(['submit',...args,'--approved-digest',JSON.parse(p.stdout).digest]);assert.equal(r.status,2,r.stderr);assert.equal((await f.read()).writes,0);
+ const r=f.run(['submit',...args,'--approved-digest',(JSON.parse(p.stdout) as {digest:string}).digest]);assert.equal(r.status,2,r.stderr);assert.equal((await f.read()).writes,0);
 });
 for(const name of ['.','..'])test('rejects path-normalizing label name '+name,async t=>{
  const f=await labelsFixture(t);const path=await f.write({...base,operation:'label-delete',name});assert.equal(f.run(['labels','validate',path]).status,2);

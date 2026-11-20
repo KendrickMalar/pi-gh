@@ -33,7 +33,7 @@ export async function applyLabelChange(input:CapturedInput,digest:string,options
  return {status:'applied'};
  }
  let suffix:string,method:'POST'|'PATCH'|'DELETE',payload:unknown;
- if(change.operation==='issue-labels'){suffix='issues/'+change.issue;method='PATCH';payload={labels:(preview.after as Label[]).map(l=>l.name)}}
+ if(change.operation==='issue-labels'){suffix='issues/'+String(change.issue);method='PATCH';payload={labels:(preview.after as Label[]).map(l=>l.name)}}
  else if(change.operation==='label-create'){suffix='labels';method='POST';payload={name:change.name,color:change.color,description:change.description??''}}
  else{
  suffix='labels/'+encodeURIComponent((preview.before as Label).name);

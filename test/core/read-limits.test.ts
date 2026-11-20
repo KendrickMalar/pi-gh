@@ -16,7 +16,7 @@ async function fakeGh(t:{after:(fn:()=>Promise<void>)=>void},total:number,size:n
  await writeFile(gh,`#!/usr/bin/env node
 const args=process.argv.slice(2),endpoint=args.find(a=>a.startsWith('repos/'))||'';
 const q=new URLSearchParams(endpoint.split('?')[1]||''),per=Number(q.get('per_page')||100),page=Number(q.get('page')||1);
-const total=${total},size=${size},items=[];
+const total=${String(total)},size=${String(size)},items=[];
 for(let i=(page-1)*per;i<Math.min(total,page*per);i++)items.push({id:i+1,node_id:'I_'+(i+1),number:i+1,name:'l'+i,body:'x'.repeat(size)});
 process.stdout.write(JSON.stringify(items));
 `);
