@@ -11,7 +11,7 @@ const changes=[
 ];
 for(const change of changes)test('approved '+change.operation+' mutates and verifies once',async t=>{
  const f=await labelsFixture(t);const path=await f.write(change);const preview=f.run(['labels','preview',path,'--json']);assert.equal(preview.status,0,preview.stderr);
- const r=f.run(['labels','apply',path,'--approved-digest',(JSON.parse(preview.stdout) as {digest:string}).digest]);assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(r.stdout).status,'applied');
+ const r=f.run(['labels','apply',path,'--approved-digest',(JSON.parse(preview.stdout) as {digest:string}).digest]);assert.equal(r.status,0,r.stderr);assert.equal((JSON.parse(r.stdout) as {status:string}).status,'applied');
  const s=await f.read();assert.equal(s.writes,1);
  if(change.operation==='issue-labels')assert.deepEqual(s.issues[0]!.labels.map((l:{name:string})=>l.name),['a,b / 優先','keep']);
  if(change.operation==='label-create')assert.ok(s.labels.some((l:{name:string;color:string})=>l.name==='new / ラベル,a'&&l.color==='abc123'));
@@ -22,7 +22,7 @@ for(const change of changes)test('approved '+change.operation+' mutates and veri
 test('no-op preserves labels and performs no write',async t=>{
  const f=await labelsFixture(t);const path=await f.write({...base,operation:'issue-labels',issue:10,add:['keep'],remove:['a,b / 優先']});
  const p=JSON.parse(f.run(['labels','preview',path,'--json']).stdout) as {digest:string;noop?:boolean;sensitive?:boolean;operation?:string;before?:unknown;after:{name:string}[];labels?:string[]};assert.equal(p.noop,true);
- const r=f.run(['labels','apply',path,'--approved-digest',p.digest]);assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(r.stdout).status,'noop');assert.equal((await f.read()).writes,0);
+ const r=f.run(['labels','apply',path,'--approved-digest',p.digest]);assert.equal(r.status,0,r.stderr);assert.equal((JSON.parse(r.stdout) as {status:string}).status,'noop');assert.equal((await f.read()).writes,0);
 });
 for(const drift of ['input','label','issue','impact','identity'])test('approval refuses '+drift+' drift',async t=>{
  const f=await labelsFixture(t);const path=await f.write(drift==='issue'?changes[0]:changes[3]);const p=JSON.parse(f.run(['labels','preview',path,'--json']).stdout) as {digest:string;noop?:boolean;sensitive?:boolean;operation?:string;before?:unknown;after:{name:string}[];labels?:string[]};
@@ -43,5 +43,5 @@ test('secret in change or remote metadata is masked and prevents changes',async 
 });
 for(const mode of ['write-error','verify-error'])test(mode+' stays uncertain without retry',async t=>{
  const f=await labelsFixture(t,{...initial(),...(mode==='write-error'?{mode}:{failReadsAfterWrite:true})});const path=await f.write(changes[3]);const p=JSON.parse(f.run(['labels','preview',path,'--json']).stdout) as {digest:string;noop?:boolean;sensitive?:boolean;operation?:string;before?:unknown;after:{name:string}[];labels?:string[]};
- const r=f.run(['labels','apply',path,'--approved-digest',p.digest]);assert.equal(r.status,3,r.stderr);assert.equal(JSON.parse(r.stderr).status,'unknown');assert.equal((await f.read()).writes,1);
+ const r=f.run(['labels','apply',path,'--approved-digest',p.digest]);assert.equal(r.status,3,r.stderr);assert.equal((JSON.parse(r.stderr) as {status:string}).status,'unknown');assert.equal((await f.read()).writes,1);
 });

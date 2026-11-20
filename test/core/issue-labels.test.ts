@@ -8,7 +8,7 @@ test('labelled Issue preview and submit use exact JSON labels and confirmed Issu
  const p=f.run(['preview',...args,'--json']);assert.equal(p.status,0,p.stderr);const preview=JSON.parse(p.stdout) as {digest:string;noop?:boolean;sensitive?:boolean;operation?:string;before?:unknown;after:{name:string}[];labels?:string[]};assert.deepEqual(preview.labels,['a,b / 優先','keep']);
  const r=f.run(['submit',...args,'--approved-digest',preview.digest]);assert.equal(r.status,0,r.stderr);
  const s=await f.read();assert.equal(s.writes,1);const i=s.issues.find((i:{number:number})=>i.number===123);assert.ok(i!.body!.includes('検索を追加'));assert.deepEqual(i!.labels.map((l:{name:string})=>l.name),['a,b / 優先','keep']);
- const post=(await f.calls()).filter(c=>c.args[c.args.indexOf('--method')+1]==='POST');assert.equal(post.length,1);assert.deepEqual(JSON.parse(post[0]!.body).labels,['a,b / 優先','keep']);
+ const post=(await f.calls()).filter(c=>c.args[c.args.indexOf('--method')+1]==='POST');assert.equal(post.length,1);assert.deepEqual((JSON.parse(post[0]!.body) as {labels:string[]}).labels,['a,b / 優先','keep']);
 });
 test('labelled Issue refuses missing label before creation',async t=>{
  const f=await labelsFixture(t);const path=await f.write({...draft(),labels:['missing']});const args=[path,'--template',f.path];const p=f.run(['preview',...args,'--json']);assert.equal(p.status,2,p.stderr);assert.equal((await f.read()).writes,0);

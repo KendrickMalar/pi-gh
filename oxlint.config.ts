@@ -34,7 +34,7 @@ export default defineConfig({
     },
     {
       // noUncheckedIndexedAccess の下で、直前の検査済みの添字・Map 参照に付けている。
-      // 件数: src 57、test 34（元の数。どちらも 30 件超。ルールごと・ディレクトリごとに数えた）。
+      // 件数: src 57、test 54（型情報つきで測った数。どちらも 30 件超。ルールごと・ディレクトリごとに数えた）。
       files: [`src/**/*.${ts}`, `test/**/*.${ts}`],
       rules: { "typescript/no-non-null-assertion": "off" },
     },
@@ -52,7 +52,6 @@ export default defineConfig({
       files: [`test/**/*.${ts}`],
       rules: {
         "typescript/no-floating-promises": "off",
-        "typescript/no-unsafe-member-access": "off",
       },
     },
   ],
