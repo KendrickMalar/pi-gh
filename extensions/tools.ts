@@ -28,7 +28,9 @@ function render(result:OperationResult){
  return {content:[{type:'text' as const,text:full.length<=limit?full:full.slice(0,limit)+'\n[truncated; complete masked data in structuredContent]'}],details:safe,structuredContent:safe as never,isError:['rejected','not-started','unknown'].includes(safe.status)};
 }
 export function registerTools(pi:ExtensionAPI,scope:RuntimeScope,packageRoot:string){
- pi.registerTool({name:'gh_capabilities',label:'GitHub capabilities',description:'Return deterministic-gh tool contract version and supported operations. No remote access.',parameters:Type.Object({},{additionalProperties:false}),outputSchema:output,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false},execute(){return Promise.resolve(render({status:'read',data:{contractVersion:1,operations:[...operations,'gh_capabilities'],features:['issue-list-labels','labels-create-many']}}));}});
+ pi.registerTool({name:'gh_capabilities',label:'GitHub capabilities',description:'Return deterministic-gh tool contract version and supported operations. No remote access.',parameters:Type.Object({},{additionalProperties:false}),outputSchema:output,annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false},// render の同期の例外を rejection のまま保つため async を残す。
+ // oxlint-disable-next-line typescript/require-await
+ async execute(){return render({status:'read',data:{contractVersion:1,operations:[...operations,'gh_capabilities'],features:['issue-list-labels','labels-create-many']}});}});
  for(const name of operations){
   const write=name==='gh_issue_submit'||name==='gh_labels_apply'||(githubWrites as readonly string[]).includes(name);
   pi.registerTool({
