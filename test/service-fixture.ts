@@ -8,8 +8,8 @@ export async function serviceFixture(t:Parameters<typeof fixture>[0]){
  await writeFile(path,JSON.stringify(draft()));await copyFile(join(packageRoot,'test/fake-gh.mjs'),gh);await chmod(gh,0o755);
  const keys=['PATH','FAKE_GH_RECORD','FAKE_GH_MODE'] as const,old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
  process.env.PATH=f.dir+':'+process.env.PATH;process.env.FAKE_GH_RECORD=record;process.env.FAKE_GH_MODE='ok';
- t.after(async()=>{for(const k of keys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}});
+ t.after(()=>{for(const k of keys){if(old[k]===undefined)Reflect.deleteProperty(process.env,k);else process.env[k]=old[k];}return Promise.resolve();});
  let current=true;const controller=new AbortController();
- const context={cwd:f.dir,packageRoot,interactive:true,signal:controller.signal,stamp:'1',isCurrent:()=>current,confirm:async(_view:unknown)=>true};
+ const context={cwd:f.dir,packageRoot,interactive:true,signal:controller.signal,stamp:'1',isCurrent:()=>current,confirm:(_view:unknown)=>Promise.resolve(true)};
  return {...f,draftPath:path,args:{draftPath:'draft.json',templatePath:f.path},context,controller,expire:()=>{current=false;},written:async()=>{try{return JSON.parse(await readFile(record,'utf8'));}catch{return undefined;}}};
 }

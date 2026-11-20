@@ -18,7 +18,7 @@ function field(value: unknown): FieldDefinition {
         fail('FIELD_BOUND', 'fields', 'Invalid length range.');
     if (value.minItems !== undefined && value.maxItems !== undefined && (value.minItems as number) > (value.maxItems as number))
         fail('FIELD_BOUND', 'fields', 'Invalid item range.');
-    const list = ['string-list', 'criteria'].includes(value.type as string);
+    const list = ['string-list', 'criteria'].includes(value.type);
     if (!list && (value.minItems !== undefined || value.maxItems !== undefined))
         fail('FIELD_BOUND', 'fields', 'Item bounds require a list.');
     if (value.type === 'criteria' && (value.options !== undefined || value.minLength !== undefined || value.maxLength !== undefined))

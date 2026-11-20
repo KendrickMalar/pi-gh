@@ -57,8 +57,8 @@ export async function loadPermissions(path:string,actor:Actor):Promise<Permissio
   if(!record(value))fail('PERMISSION_FORMAT','','Expected grant object.');keys(value,['repo','operations','allowChild','allowHeadless','projectIds','agentApproval'],'grant');validateGrantRepo(value.repo);
   if(!Array.isArray(value.operations)||!value.operations.length||value.operations.some(x=>typeof x!=='string'||!allowed.has(x))||new Set(value.operations).size!==value.operations.length)fail('PERMISSION_FORMAT','','Unknown or repeated operation.');
   for(const key of ['allowChild','allowHeadless','agentApproval'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
-  if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[A-Za-z0-9_-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
-  return {repo:value.repo as string,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[],agentApproval:value.agentApproval===true};
+  if(value.projectIds!==undefined&&(!Array.isArray(value.projectIds)||value.projectIds.length>100||value.projectIds.some(x=>typeof x!=='string'||!/^PVT_[\w-]+$/.test(x))))fail('PERMISSION_FORMAT','','Expected exact project IDs.');
+  return {repo:value.repo,operations:value.operations as string[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:(value.projectIds??[]) as string[],agentApproval:value.agentApproval===true};
  });
  // The sidecar adds agent-approval grants without changing the permission file, which older versions (pi-gh ≤0.12) must keep reading.
  const sideGrants:Grant[]=side===undefined?[]:decodeSidecar(side);
@@ -81,6 +81,6 @@ function decodeSidecar(captured:string):Grant[]{
  return raw.grants.map(value=>{
   if(!record(value))fail('PERMISSION_FORMAT','','Expected agent approval grant object.');keys(value,['repo','allowChild','allowHeadless'],'agent approval grant');validateGrantRepo(value.repo);
   for(const key of ['allowChild','allowHeadless'])if(value[key]!==undefined&&typeof value[key]!=='boolean')fail('PERMISSION_FORMAT','','Actor flags must be booleans.');
-  return {repo:value.repo as string,operations:[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:[],agentApproval:true};
+  return {repo:value.repo,operations:[],allowChild:value.allowChild===true,allowHeadless:value.allowHeadless===true,projectIds:[],agentApproval:true};
  });
 }

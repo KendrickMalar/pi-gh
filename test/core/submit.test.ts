@@ -11,13 +11,13 @@ import { renderIssue } from '../../src/core/render.js';
 import { fixture, draft, input } from '../helpers.js';
 async function setup(t: {
     after: (fn: () => Promise<void>) => void;
-}, mode = 'ok') { const f = await fixture(t); const gh = join(f.dir, 'gh'); await copyFile(fileURLToPath(new URL('../../../test/fake-gh.mjs', import.meta.url)), gh); await chmod(gh, 0o755); const oldMode = process.env.FAKE_GH_MODE, oldRecord = process.env.FAKE_GH_RECORD; process.env.FAKE_GH_MODE = mode; process.env.FAKE_GH_RECORD = join(f.dir, 'record.json'); t.after(async () => { if (oldMode === undefined)
+}, mode = 'ok') { const f = await fixture(t); const gh = join(f.dir, 'gh'); await copyFile(fileURLToPath(new URL('../../../test/fake-gh.mjs', import.meta.url)), gh); await chmod(gh, 0o755); const oldMode = process.env.FAKE_GH_MODE, oldRecord = process.env.FAKE_GH_RECORD; process.env.FAKE_GH_MODE = mode; process.env.FAKE_GH_RECORD = join(f.dir, 'record.json'); t.after(() => { if (oldMode === undefined)
     delete process.env.FAKE_GH_MODE;
 else
     process.env.FAKE_GH_MODE = oldMode; if (oldRecord === undefined)
     delete process.env.FAKE_GH_RECORD;
 else
-    process.env.FAKE_GH_RECORD = oldRecord; }); const issue = validateDraft(input(draft()), await loadTemplate(f.path)).issue!; return { ...f, gh, issue, record: join(f.dir, 'record.json') }; }
+    process.env.FAKE_GH_RECORD = oldRecord; return Promise.resolve(); }); const issue = validateDraft(input(draft()), await loadTemplate(f.path)).issue!; return { ...f, gh, issue, record: join(f.dir, 'record.json') }; }
 test('submits approved body via stdin with fixed arguments', async (t) => { const f = await setup(t); const p = createPreview(f.issue); const result = await submitIssue(f.issue, p.digest, { ghExecutable: f.gh }); assert.deepEqual(result, { status: 'created', url: 'https://github.com/example/demo/issues/123' }); const recorded = JSON.parse(await readFile(f.record, 'utf8')) as {
     args: string[];
     body: string;

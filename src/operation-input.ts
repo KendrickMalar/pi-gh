@@ -22,7 +22,7 @@ export function validateGithubArgs(name:GithubOperation,args:unknown):asserts ar
   if(args.state!==undefined&&!['open','closed','all'].includes(args.state as string))fail('ARGUMENT','','Unknown Issue state.');
   if(args.labels!==undefined){
    if(!Array.isArray(args.labels)||args.labels.length<1||args.labels.length>10)fail('ARGUMENT','labels','Expected 1 to 10 label names.');
-   for(const l of args.labels){validateLabelName(l);if((l as string).includes(','))fail('ARGUMENT','labels','Label names used as filters cannot contain commas.');}
+   for(const l of args.labels){validateLabelName(l);if((l).includes(','))fail('ARGUMENT','labels','Label names used as filters cannot contain commas.');}
    if(new Set((args.labels as string[]).map(labelKey)).size!==args.labels.length)fail('ARGUMENT','labels','Duplicate label filter.');
   }
  }else positive(args.issue);
@@ -65,13 +65,13 @@ export function validateChange(name:GithubOperation,input:CapturedInput):Change{
  if(raw.operation==='subissue-add'||raw.operation==='dependency-add'){positive(raw.relatedIssue);if(raw.relatedIssue===raw.issue)fail('ARGUMENT','','Self-links are forbidden.');}
  if(raw.operation.startsWith('project-')&&raw.operation!=='project-create')nodeId(raw.projectId,'PVT_');
  if(raw.operation==='project-field-update'){
-  nodeId(raw.itemId,'PVTI_');if(typeof raw.fieldId!=='string'||!/^PVT(F|SSF)_[A-Za-z0-9_-]{1,200}$/.test(raw.fieldId))fail('ARGUMENT','','Invalid field ID.');
+  nodeId(raw.itemId,'PVTI_');if(typeof raw.fieldId!=='string'||!/^PVT(?:F|SSF)_[\w-]{1,200}$/.test(raw.fieldId))fail('ARGUMENT','','Invalid field ID.');
   if(!record(raw.value)||Object.keys(raw.value).length!==1)fail('ARGUMENT','','Expected one typed field value.');keys(raw.value,['text','number','date','singleSelectOptionId'],'field value');
   const v=raw.value;
   if('text'in v&&(typeof v.text!=='string'||v.text.length>20000))fail('ARGUMENT','','Invalid text.');
   if('number'in v&&(typeof v.number!=='number'||!Number.isFinite(v.number)))fail('ARGUMENT','','Invalid number.');
   if('date'in v){if(typeof v.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(Date.parse(v.date))||new Date(v.date).toISOString().slice(0,10)!==v.date)fail('ARGUMENT','','Invalid ISO date.');}
-  if('singleSelectOptionId'in v&&(typeof v.singleSelectOptionId!=='string'||!/^[A-Za-z0-9_-]{1,200}$/.test(v.singleSelectOptionId)))fail('ARGUMENT','','Invalid option ID.');
+  if('singleSelectOptionId'in v&&(typeof v.singleSelectOptionId!=='string'||!/^[\w-]{1,200}$/.test(v.singleSelectOptionId)))fail('ARGUMENT','','Invalid option ID.');
  }
  return raw as Change;
 }

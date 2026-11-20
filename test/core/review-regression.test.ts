@@ -19,9 +19,9 @@ test('GH_HOST cannot change the approved github.com destination', async (t) => {
     process.env.GH_HOST = 'enterprise.example';
     process.env.FAKE_GH_RECORD = record;
     process.env.FAKE_GH_MODE = 'ok';
-    t.after(async () => { for (const [k, v] of [['GH_HOST', saved.host], ['FAKE_GH_RECORD', saved.record], ['FAKE_GH_MODE', saved.mode]] as const) {
+    t.after(() => { for (const [k, v] of [['GH_HOST', saved.host], ['FAKE_GH_RECORD', saved.record], ['FAKE_GH_MODE', saved.mode]] as const) {
         if (v === undefined)
-            delete process.env[k];
+            Reflect.deleteProperty(process.env, k);
         else
             process.env[k] = v;
     } });
@@ -56,7 +56,7 @@ test('policy swapped to outside symlink after realpath is rejected before captur
         await fs.symlink(external, target);
     } return answer; }) as typeof fs.realpath;
     syncBuiltinESMExports();
-    t.after(async () => { fs.realpath = original; syncBuiltinESMExports(); });
+    t.after(() => { fs.realpath = original; syncBuiltinESMExports(); });
     await assert.rejects(loadTemplate(f.path));
     assert.equal(swapped, true);
 });
@@ -73,7 +73,7 @@ test('policy parent directory swapped to outside symlink is rejected', async (t)
         await fs.symlink(outside.dir, folder);
     } return answer; }) as typeof fs.realpath;
     syncBuiltinESMExports();
-    t.after(async () => { fs.realpath = original; syncBuiltinESMExports(); });
+    t.after(() => { fs.realpath = original; syncBuiltinESMExports(); });
     await assert.rejects(loadTemplate(f.path));
     assert.equal(swapped, true);
 });

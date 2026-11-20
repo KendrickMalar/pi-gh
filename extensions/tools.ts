@@ -5,8 +5,8 @@ import {safeResult,errorResult} from '../dist/src/result.js';
 import {loadPermissions,permissionPath} from '../dist/src/permissions.js';
 import {runGithubOperation} from '../dist/src/operations.js';
 import {githubReads,githubWrites} from '../dist/src/operation-input.js';
-import type {GithubOperation,GithubArgs} from '../src/operation-input.js';
-import type {Operation,IssueArgs,LabelsArgs,FormArgs,ApprovalView,OperationResult} from '../src/service-types.js';
+import type {GithubOperation} from '../src/operation-input.js';
+import type {Operation,ApprovalView,OperationResult} from '../src/service-types.js';
 import {showApproval} from './approval-ui.ts';
 import type {RuntimeScope} from './runtime-scope.ts';
 const template={template:Type.Optional(Type.Union([Type.Literal('parent'),Type.Literal('task')])),templatePath:Type.Optional(Type.String({minLength:1}))};
@@ -45,7 +45,7 @@ export function registerTools(pi:ExtensionAPI,scope:RuntimeScope,packageRoot:str
       cwd:ctx.cwd,packageRoot,interactive:!headless&&!child,permissions,signal:lease.signal,stamp:lease.stamp,isCurrent,
       confirm:(view:ApprovalView)=>showApproval(view,{signal:lease.signal,isCurrent},ctx.ui)
      };
-     return (githubReads as readonly string[]).includes(name)||(githubWrites as readonly string[]).includes(name)?runGithubOperation(name as GithubOperation,args as GithubArgs,context):runOperation(name as Operation,args as IssueArgs|LabelsArgs|FormArgs,context);
+     return (githubReads as readonly string[]).includes(name)||(githubWrites as readonly string[]).includes(name)?runGithubOperation(name as GithubOperation,args,context):runOperation(name as Operation,args,context);
     };
     try{return render(write?await scope.runExclusive(work):await work());}
     catch(error){return render(errorResult(error));}

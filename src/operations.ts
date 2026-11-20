@@ -25,7 +25,7 @@ function precondition(c:Change,s:Snapshot){
 }
 /** Complete repository label list as {name,color,description}; malformed or case-duplicated listings are refused. */
 function listedLabels(raw:unknown[]){
- const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-fA-F]{6}$/.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name as string,color:l.color.toLowerCase(),description:(l.description as string|null|undefined)??''};});
+ const labels=raw.map(object).map(l=>{validateLabelName(l.name);if(typeof l.color!=='string'||!/^[0-9a-f]{6}$/i.test(l.color)||(l.description!==null&&l.description!==undefined&&typeof l.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');return {name:l.name,color:l.color.toLowerCase(),description:(l.description)??''};});
  if(new Set(labels.map(l=>labelKey(l.name))).size!==labels.length)fail('GITHUB_RESPONSE','','Duplicate labels in listing.');
  return labels.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 }

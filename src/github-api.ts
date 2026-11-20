@@ -35,7 +35,7 @@ export class GithubApi{
  }
  async issue(repo:string,number:number):Promise<JsonObject>{
   const v=object(await this.rest('repos/'+repo+'/issues/'+number));
-  if(v.pull_request!==undefined||v.number!==number||!Number.isSafeInteger(v.id)||(v.id as number)<1||typeof v.node_id!=='string'||!/^I_[A-Za-z0-9_-]+$/.test(v.node_id)||typeof v.html_url!=='string'||v.html_url.toLowerCase()!==('https://github.com/'+repo+'/issues/'+number).toLowerCase())fail('GITHUB_IDENTITY','','Expected the exact GitHub Issue, not a PR.');
+  if(v.pull_request!==undefined||v.number!==number||!Number.isSafeInteger(v.id)||(v.id as number)<1||typeof v.node_id!=='string'||!/^I_[\w-]+$/.test(v.node_id)||typeof v.html_url!=='string'||v.html_url.toLowerCase()!==('https://github.com/'+repo+'/issues/'+number).toLowerCase())fail('GITHUB_IDENTITY','','Expected the exact GitHub Issue, not a PR.');
   return v;
  }
  async graphql(query:string,variables:JsonObject):Promise<JsonObject>{

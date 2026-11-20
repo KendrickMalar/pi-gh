@@ -36,7 +36,7 @@ export class GhClient{
  }
 }
 export function parseLabel(v:unknown):Label{
- if(!record(v)||!Number.isSafeInteger(v.id)||(v.id as number)<1||!nonblank(v.node_id)||typeof v.color!=='string'||! /^[a-fA-F0-9]{6}$/.test(v.color)||(v.description!==null&&typeof v.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');
+ if(!record(v)||!Number.isSafeInteger(v.id)||(v.id as number)<1||!nonblank(v.node_id)||typeof v.color!=='string'||! /^[a-f0-9]{6}$/i.test(v.color)||(v.description!==null&&typeof v.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');
  validateLabelName(v.name);
  return {id:v.id as number,node_id:v.node_id,name:v.name,color:v.color.toLowerCase(),description:(v.description as string|null|undefined)??''};
 }

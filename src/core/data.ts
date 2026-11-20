@@ -16,7 +16,7 @@ export function keys(value: Record<string, unknown>, allowed: readonly string[],
             fail('UNKNOWN_KEY', field, 'Unknown property.');
 }
 export function nonblank(value: unknown): value is string { return typeof value === 'string' && value.trim().length > 0; }
-export function validId(value: unknown): value is string { return typeof value === 'string' && /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(value) && !['constructor', 'prototype', '__proto__'].includes(value); }
+export function validId(value: unknown): value is string { return typeof value === 'string' && /^[a-z][\w-]{0,63}$/i.test(value) && !['constructor', 'prototype', '__proto__'].includes(value); }
 export async function capture(file: string, allowedRoot?: string): Promise<CapturedInput> {
     let handle;
     try {

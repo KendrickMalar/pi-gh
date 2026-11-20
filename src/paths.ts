@@ -6,7 +6,7 @@ export function validateArguments(operation:Operation,args:unknown):void{
  const label=operation.startsWith('gh_labels_'),form=operation==='gh_issue_form';
  const allowed=label?['changePath']:form?['template','templatePath']:['draftPath','template','templatePath'];
  if(Object.keys(args).some(key=>!allowed.includes(key)))fail('ARGUMENT','','Unknown argument.');
- for(const key of [label?'changePath':form?'':'draftPath','templatePath'])if(key&&args[key]!==undefined&&(typeof args[key]!=='string'||!(args[key] as string).trim()))fail('ARGUMENT',key,'A non-empty path is required.');
+ for(const key of [label?'changePath':form?'':'draftPath','templatePath'])if(key&&args[key]!==undefined&&(typeof args[key]!=='string'||!(args[key]).trim()))fail('ARGUMENT',key,'A non-empty path is required.');
  if(!form&&typeof args[label?'changePath':'draftPath']!=='string')fail('ARGUMENT','','Input path is required.');
  if(args.template!==undefined&&!['parent','task'].includes(args.template as string))fail('ARGUMENT','template','Unknown standard template.');
  if(args.template!==undefined&&args.templatePath!==undefined)fail('ARGUMENT','template','Choose standard or custom template, not both.');

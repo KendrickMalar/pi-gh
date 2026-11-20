@@ -10,7 +10,7 @@ export type LabelChange = Base & (
 );
 export function labelKey(name:string):string { return name.toLowerCase(); }
 export function validateRepo(value:unknown): asserts value is string {
- if(typeof value!=='string'||! /^[a-zA-Z0-9][a-zA-Z0-9-]{0,99}\/[a-zA-Z0-9_.][a-zA-Z0-9_.-]{0,99}$/.test(value)||value.endsWith('/.')||value.endsWith('/..'))
+ if(typeof value!=='string'||! /^[a-z0-9][a-z0-9-]{0,99}\/[\w.][\w.-]{0,99}$/i.test(value)||value.endsWith('/.')||value.endsWith('/..'))
  fail('LABEL_REPO','repo','Expected OWNER/REPO.');
 }
 export function validateLabelName(value:unknown): asserts value is string {
@@ -44,16 +44,16 @@ export function validateLabelChange(input:CapturedInput):LabelChange {
  v.labels.forEach((l:unknown,i:number)=>{
   if(!record(l))fail('LABEL_INPUT','labels['+i+']','Expected a label object.');
   keys(l,['name','color','description'],'labels['+i+']');validateLabelName(l.name);
-  if(typeof l.color!=='string'||! /^[0-9a-fA-F]{6}$/.test(l.color))fail('LABEL_COLOR','labels['+i+'].color','Expected a six-digit hexadecimal color.');
+  if(typeof l.color!=='string'||! /^[0-9a-f]{6}$/i.test(l.color))fail('LABEL_COLOR','labels['+i+'].color','Expected a six-digit hexadecimal color.');
   if(l.description!==undefined&&(typeof l.description!=='string'||/[\u0000-\u001f\u007f]/.test(l.description)||Array.from(l.description).length>100))
   fail('LABEL_DESCRIPTION','labels['+i+'].description','Expected a single-line description up to 100 characters.');
-  const key=labelKey(l.name as string);if(seen.has(key))fail('LABEL_DUPLICATE','labels','Duplicate label name.');seen.add(key);
+  const key=labelKey(l.name);if(seen.has(key))fail('LABEL_DUPLICATE','labels','Duplicate label name.');seen.add(key);
  });
  } else {
  validateLabelName(v.name);
  if(v.newName!==undefined)validateLabelName(v.newName);
  if(v.operation==='label-create'||v.color!==undefined)
- if(typeof v.color!=='string'||! /^[0-9a-fA-F]{6}$/.test(v.color))fail('LABEL_COLOR','color','Expected a six-digit hexadecimal color.');
+ if(typeof v.color!=='string'||! /^[0-9a-f]{6}$/i.test(v.color))fail('LABEL_COLOR','color','Expected a six-digit hexadecimal color.');
  if(v.description!==undefined&&(typeof v.description!=='string'||/[\u0000-\u001f\u007f]/.test(v.description)||Array.from(v.description).length>100))
  fail('LABEL_DESCRIPTION','description','Expected a single-line description up to 100 characters.');
  if(v.operation==='label-edit'&&v.newName===undefined&&v.color===undefined&&v.description===undefined)fail('LABEL_EMPTY','','No label changes requested.');

@@ -1,7 +1,9 @@
 const patterns = [
-    /\b(?:sk_live_[a-zA-Z0-9_-]{8,}|sk-[a-zA-Z0-9_-]{16,}|gh[pousr]_[a-zA-Z0-9]{16,}|github_pat_[a-zA-Z0-9_]{20,}|xox[baprs]-[a-zA-Z0-9-]{8,})\b/g,
-    /\bBearer\s+[a-zA-Z0-9._~+/-]{12,}=*/gi,
-    /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret|authorization)\s*["']?\s*[:=]\s*["']?(?!\s*(?:\$|<|placeholder|example|changeme|your[_-]))[a-zA-Z0-9_./+=:-]{8,}/gi
+    /\b(?:sk_live_[\w-]{8,}|sk-[\w-]{16,}|gh[pousr]_[a-zA-Z0-9]{16,}|github_pat_\w{20,}|xox[baprs]-[a-zA-Z0-9-]{8,})\b/g,
+    /\bBearer\s+[\w.~+/-]{12,}=*/gi,
+    // 直した場合は一致範囲が変わる（引用符の後の空白を許す）ため、この 1 行だけルールを外す。空白の連なりに対する多項式の backtracking は残る（未対策）。
+    // oxlint-disable-next-line regexp/no-super-linear-backtracking
+    /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret|authorization)(?:\s*["'])?\s*[:=]\s*["']?(?!\s*(?:\$|<|placeholder|example|changeme|your[_-]))[\w./+=:-]{8,}/gi
 ];
 export function maskSecrets(value: string): {
     text: string;

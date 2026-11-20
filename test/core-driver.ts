@@ -12,7 +12,7 @@ const args=process.argv.slice(2);
 const output=(value:unknown)=>process.stdout.write(typeof value==='string'?value+'\n':JSON.stringify(value)+'\n');
 try {
  if(args[0]==='labels'){
-  const op=args[1],extra=args.slice(3);if(!args[2]||!['validate','preview','apply'].includes(op??'')||(op==='validate'&&extra.length)||(op==='preview'&&!(extra.length===0||extra.length===1&&extra[0]==='--json'))||(op==='apply'&&!(extra.length===2&&extra[0]==='--approved-digest'&&extra[1])))fail('ARGUMENT','','Invalid test arguments.');const input=await loadDraft(args[2]!);
+  const op=args[1],extra=args.slice(3);if(!args[2]||!['validate','preview','apply'].includes(op??'')||(op==='validate'&&extra.length)||(op==='preview'&&!(extra.length===0||extra.length===1&&extra[0]==='--json'))||(op==='apply'&&!(extra.length===2&&extra[0]==='--approved-digest'&&extra[1])))fail('ARGUMENT','','Invalid test arguments.');const input=await loadDraft(args[2]);
   if(op==='validate'){validateLabelChange(input);output('Valid label change.');}
   else if(op==='preview')output(await previewLabelChange(input));
   else if(op==='apply'){const result=await applyLabelChange(input,args[args.indexOf('--approved-digest')+1]!);const success=['applied','noop'].includes(result.status);(success?process.stdout:process.stderr).write(maskSecrets(JSON.stringify(result)).text+'\n');process.exitCode=success?0:result.status==='rejected'?2:3;}
