@@ -151,7 +151,8 @@ Issue用YAMLはfieldsのrequired/options/順序/制限とmodels policyを正本�
 
 ## 開発・検証
 
-`npm run build`、`npm run typecheck`、`npm test`。
+`npm run build`、`npm run typecheck`（tsrs）、`npm run lint`（oxlint の型つき検査）、`npm test`。全部は`npm run check`です。
+commit時に`typecheck`と`lint`、push時に`check`を流す`.husky/pre-commit`・`.husky/pre-push`があります。clone後は、`.git/hooks/pre-commit`に`#!/bin/sh`と`cd "$(git rev-parse --show-toplevel)" && exec sh .husky/pre-commit "$@"`を書いて実行権を付け、`pre-push`も同様にしてください（huskyのnpmパッケージは`core.hooksPath`を書き換えるため使いません）。
 `python3 scripts/test-deterministic-gh-cli.py --pi /absolute/path/to/pi`は合成HOME・偽gh・loopbackモデルで実PiのTUI/RPC/print・ネスト呼び出し・許可付き子実行・hooksを検証します。実アカウントや実GitHubへの試験投稿はしません。GitHubのライブ変更互換性は未実測です。
 `npm pack`にはentry、compiled core、templates、架空examples、README、LICENSEだけを含め、docs/test/認証は含めません。
 

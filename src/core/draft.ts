@@ -1,5 +1,5 @@
 import { capture, parseJson, record, keys, nonblank, fail, DataError } from './data.js';
-import type { CapturedInput, Criterion, Draft, FieldDefinition, TemplateBundle, ValidatedIssue, ValidationProblem } from './types.js';
+import type { CapturedInput, Draft, FieldDefinition, TemplateBundle, ValidatedIssue, ValidationProblem } from './types.js';
 import { validateLabelNames } from './labels-input.js';
 export async function loadDraft(path: string): Promise<CapturedInput> { return capture(path); }
 function string(value: unknown, f: FieldDefinition, path: string) {

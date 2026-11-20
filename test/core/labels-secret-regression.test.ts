@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {writeFile,readFile} from 'node:fs/promises';
-import {labelsFixture,initial,label} from '../label-fixture.js';
+import {labelsFixture,initial} from '../label-fixture.js';
 import {draft} from '../helpers.js';
 const base={version:1,repo:'example/demo'};
 const credential='password="abcdefghi"';

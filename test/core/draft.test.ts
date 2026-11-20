@@ -35,4 +35,4 @@ test('large and deep JSON are refused and error values are not exposed', async (
     assert.ok(!JSON.stringify(out.problems).includes('very-secret-token'));
 } await writeFile(f.path, 'x'.repeat(1048577)); await assert.rejects(loadDraft(f.path)); });
 
-test('optional draft labels accept comma and Unicode as individual names', async t => { const f = await fixture(t); const b = await loadTemplate(f.path); const r = validateDraft(input({ ...draft(), labels: ['a,b', '優先 / high'] }), b); assert.deepEqual(r.problems, []); assert.deepEqual((r.issue?.draft as unknown as {labels: string[]}).labels, ['a,b', '優先 / high']); });
+test('optional draft labels accept comma and Unicode as individual names', async t => { const f = await fixture(t); const b = await loadTemplate(f.path); const r = validateDraft(input({ ...draft(), labels: ['a,b', '優先 / high'] }), b); assert.deepEqual(r.problems, []); assert.deepEqual((r.issue!.draft as unknown as {labels: string[]}).labels, ['a,b', '優先 / high']); });

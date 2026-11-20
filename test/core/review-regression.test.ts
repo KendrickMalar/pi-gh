@@ -98,7 +98,7 @@ test('timeout returns unknown even when an exited wrapper leaves a descendant ho
         };
         process.kill(entry.descendantPid, 'SIGKILL');
     }
-    catch { } if (oldRecord === undefined)
+    catch { /* 既に終了している */ } if (oldRecord === undefined)
         delete process.env.FAKE_GH_RECORD;
     else
         process.env.FAKE_GH_RECORD = oldRecord; if (oldMode === undefined)
@@ -109,7 +109,7 @@ test('timeout returns unknown even when an exited wrapper leaves a descendant ho
     let guard: NodeJS.Timeout | undefined;
     const guardPromise = new Promise<{
         status: 'did-not-settle';
-    }>(resolve => { guard = setTimeout(() => resolve({ status: 'did-not-settle' }), 900); });
+    }>(resolve => { guard = setTimeout(() =>{  resolve({ status: 'did-not-settle' }); }, 900); });
     const pending = submitIssue(issue, createPreview(issue).digest, { ghExecutable: gh, timeoutMs: 150 });
     const result = await Promise.race([pending, guardPromise]);
     clearTimeout(guard);
@@ -120,7 +120,7 @@ test('timeout returns unknown even when an exited wrapper leaves a descendant ho
         try {
             process.kill(entry.descendantPid, 'SIGKILL');
         }
-        catch { }
+        catch { /* 既に終了している */ }
         await pending;
     }
     assert.equal(result.status, 'unknown');

@@ -10,21 +10,21 @@ export async function showApproval(view:ApprovalView,scope:Scope,ui:ExtensionCon
    let selected=0,settled=false;const text=plain(view.text),scroll=new ScrollView(new Text(text,0,0),{scrollbar:'hidden',overscroll:'contain'});
    let cachedWidth=0,cachedLines:string[]=[];
    const finish=(value:boolean)=>{if(settled)return;settled=true;done(value&&scope.isCurrent()&&!scope.signal.aborted);};
-   const abort=()=>finish(false);scope.signal.addEventListener('abort',abort,{once:true});
+   const abort=()=>{ finish(false); };scope.signal.addEventListener('abort',abort,{once:true});
    if(scope.signal.aborted||!scope.isCurrent())queueMicrotask(abort);
    const component:Component&{dispose:()=>void}={
     render(width){
      const rows=tui.terminal.rows;if(width<16||rows<9||!scope.isCurrent()){queueMicrotask(abort);return [truncateToWidth('Approval unavailable. Cancelled.',width)];}
      const viewport=Math.max(1,rows-7);if(cachedWidth!==width){cachedLines=wrapTextWithAnsi(text,Math.max(1,width));cachedWidth=width;}const lines=cachedLines;
-     scroll.updateLayout(lines.length,viewport,()=>tui.requestRender());
+     scroll.updateLayout(lines.length,viewport,()=>{ tui.requestRender(); });
      const top=scroll.scrollTop,visible=lines.slice(top,top+viewport);
      return [theme.fg('accent',truncateToWidth('deterministic-gh review: '+view.operation,width)),truncateToWidth('Target and content below. No changes yet.',width),'',...visible,'',truncateToWidth((selected===0?'[Cancel]  Approve':'Cancel  [Approve]')+'   '+(top+1)+'/'+lines.length,width),truncateToWidth('Up/Down/PgUp/PgDn scroll; Left/Right choose; Enter; Esc cancel',width)];
     },
     handleInput(data){
-     if(settled)return;if(!scope.isCurrent()||scope.signal.aborted)return finish(false);
-     if(matchesKey(data,Key.escape)||matchesKey(data,Key.ctrl('c')))return finish(false);
+     if(settled)return;if(!scope.isCurrent()||scope.signal.aborted){ finish(false); return; }
+     if(matchesKey(data,Key.escape)||matchesKey(data,Key.ctrl('c'))){ finish(false); return; }
      if(matchesKey(data,Key.left)||matchesKey(data,Key.right)||matchesKey(data,Key.tab))selected=selected===0?1:0;
-     else if(matchesKey(data,Key.enter))return finish(selected===1);
+     else if(matchesKey(data,Key.enter)){ finish(selected===1); return; }
      else if(matchesKey(data,Key.up))scroll.scrollBy(-1);
      else if(matchesKey(data,Key.down))scroll.scrollBy(1);
      else if(matchesKey(data,Key.pageUp))scroll.scrollBy(-Math.max(1,tui.terminal.rows-7));

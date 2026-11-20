@@ -30,7 +30,7 @@ export class GhClient{
  for(let page=1;page<=100;page++){
  const value=await this.read(suffix+(suffix.includes('?')?'&':'?')+'per_page=100&page='+page);
  if(!Array.isArray(value)||value.length>100)fail('GITHUB_RESPONSE','','Expected a paginated array.');
- result.push(...value);if(value.length<100)return result;
+ result.push(...(value as unknown[]));if(value.length<100)return result;
  }
  fail('GITHUB_LIMIT','','Incomplete listing: more than 100 pages.');
  }
@@ -38,7 +38,7 @@ export class GhClient{
 export function parseLabel(v:unknown):Label{
  if(!record(v)||!Number.isSafeInteger(v.id)||(v.id as number)<1||!nonblank(v.node_id)||typeof v.color!=='string'||! /^[a-fA-F0-9]{6}$/.test(v.color)||(v.description!==null&&typeof v.description!=='string'))fail('GITHUB_RESPONSE','','Invalid label.');
  validateLabelName(v.name);
- return {id:v.id as number,node_id:v.node_id,name:v.name,color:v.color.toLowerCase(),description:v.description as string??''};
+ return {id:v.id as number,node_id:v.node_id,name:v.name,color:v.color.toLowerCase(),description:(v.description as string|null|undefined)??''};
 }
 export const sortLabels=(labels:Label[])=>labels.sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:a.id-b.id);
 export async function repositoryLabels(client:GhClient):Promise<Label[]>{

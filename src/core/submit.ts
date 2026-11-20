@@ -18,7 +18,7 @@ export async function submitIssue(issue:ValidatedIssue,approvedDigest:string,opt
  const urls=result.stdout.trim().split(/\s+/).filter(v=>v.startsWith('https://github.com/'));
  let url:string|undefined;
  if(urls.length===1){try{const u=new URL(urls[0]!);const parts=u.pathname.split('/');
- if(u.origin==='https://github.com'&&!u.search&&!u.hash&&parts.length===5&&(parts[1]+'/'+parts[2]).toLowerCase()===fixed.repo.toLowerCase()&&parts[3]==='issues'&&/^[1-9][0-9]*$/.test(parts[4]!))url=u.href;
+ if(u.origin==='https://github.com'&&!u.search&&!u.hash&&parts.length===5&&(parts[1]+'/'+parts[2]).toLowerCase()===fixed.repo.toLowerCase()&&parts[3]==='issues'&&/^[1-9]\d*$/.test(parts[4]!))url=u.href;
  }catch{/* Invalid URL is uncertain. */}}
  if(result.status==='ok'&&url)return {status:'created',url};
  return {status:'unknown',message:'Submission outcome is uncertain. Check GitHub manually before retrying.',...(url?{candidateUrl:url}:{})};

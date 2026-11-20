@@ -29,13 +29,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.core.json",
-    "build:test": "tsc -p tsconfig.test.json",
-    "typecheck": "npm run build && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.extension.json",
+    "build": "tsrs -p tsconfig.core.json",
+    "build:test": "tsrs -p tsconfig.test.json",
+    "typecheck": "npm run build && tsrs --noEmit --fast -p tsconfig.test.json && tsrs --noEmit --fast -p tsconfig.extension.json",
+    "lint": "oxlint --type-aware --max-warnings 0",
     "test:extension": "npm run build && node --test test/*.test.mjs",
     "test:core": "npm run build && npm run build:test && node --test dist/test/core/*.test.js",
     "test:service": "npm run build && npm run build:test && node --test dist/test/service*.test.js",
-    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js dist/test/package.test.js test/*.test.mjs"
+    "test": "npm run build && npm run build:test && node --test dist/test/core/*.test.js dist/test/service*.test.js dist/test/package.test.js test/*.test.mjs",
+    "check": "npm run typecheck && npm run lint && npm test"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -48,7 +50,11 @@
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.0.4",
     "@types/node": "^22.15.30",
+    "eslint-plugin-n": "18.4.1",
+    "eslint-plugin-regexp": "3.3.1",
+    "globals": "17.13.0",
     "jiti": "2.6.1",
-    "typescript": "^5.9.2"
+    "oxlint": "1.94.0",
+    "tsrs": "7.1.0-beta.tsrs2"
   }
 }

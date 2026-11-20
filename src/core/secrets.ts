@@ -1,6 +1,6 @@
 const patterns = [
-    /\b(?:sk_live_[a-zA-Z0-9_-]{8,}|sk-[a-zA-Z0-9_-]{16,}|(?:gh[pousr]_[a-zA-Z0-9]{16,}|github_pat_[a-zA-Z0-9_]{20,})|xox[baprs]-[a-zA-Z0-9-]{8,})\b/g,
-    /\bBearer\s+[a-zA-Z0-9._~+\/-]{12,}=*/gi,
+    /\b(?:sk_live_[a-zA-Z0-9_-]{8,}|sk-[a-zA-Z0-9_-]{16,}|gh[pousr]_[a-zA-Z0-9]{16,}|github_pat_[a-zA-Z0-9_]{20,}|xox[baprs]-[a-zA-Z0-9-]{8,})\b/g,
+    /\bBearer\s+[a-zA-Z0-9._~+/-]{12,}=*/gi,
     /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|client[_-]?secret|authorization)\s*["']?\s*[:=]\s*["']?(?!\s*(?:\$|<|placeholder|example|changeme|your[_-]))[a-zA-Z0-9_./+=:-]{8,}/gi
 ];
 export function maskSecrets(value: string): {
